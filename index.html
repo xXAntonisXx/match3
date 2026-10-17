@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Match 3</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { margin: 0; background: #1a1a2e; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; user-select: none; }
+        .header { display: flex; justify-content: space-between; width: 90%; max-width: 400px; margin-top: 20px; font-size: 20px; font-weight: bold; background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 12px; }
+        .board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; width: 90vw; max-width: 400px; aspect-ratio: 1/1; margin-top: 20px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 15px; }
+        .cell { display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; transition: transform 0.1s; }
+        .cell img { width: 80%; height: 80%; object-fit: contain; pointer-events: none; }
+        .cell:active { transform: scale(0.9); }
+        .controls { margin-top: 20px; }
+        button { background: #4ecca3; color: #1a1a2e; border: none; padding: 12px 24px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span>⭐ Счет: <span id="score">0</span></span>
+        <span>🪙 <span id="coins">0</span></span>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+        <button onclick="buyBoost()">🔄 Перемешать (50 🪙)</button>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
