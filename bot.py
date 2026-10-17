@@ -4,7 +4,8 @@ from aiogram.filters import Command
 from aiogram.types import Message, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
  
-BOT_TOKEN = "ВСТАВЬ_СЮДА_СВОЙ_ТОКЕН"
+BOT_TOKEN = "8850803836:AAEBxvZjnuskJGoXG5U89tXmOpOIgFe3i6U"
+ADMIN_IDS = [1460372490]
  
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
