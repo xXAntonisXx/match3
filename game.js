@@ -6,6 +6,9 @@ const COLS = 8;
 const TYPES = 6; 
 const SPRITES = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png'];
 const BOMB_SPRITE = 'bomb.png';
+const soundPop = new Audio('pop.mp3');
+const soundBoom = new Audio('boom.mp3');
+let comboCount = 0;
  
 let board = [];
 let score = 0;
@@ -261,9 +264,46 @@ function findMatches() {
 }
  
 function processMatches(matched, isPlayerMove) {
+    // Звук
+    soundPop.currentTime = 0;
+    soundPop.play().catch(e => {}); 
+ 
+    // Логика комбо (если это не ход игрока, а каскад)
+    if (!isPlayerMove) {
+        comboCount++;
+        if (comboCount > 1) {
+            const comboEl = document.getElementById('combo-text');
+            comboEl.innerText = `КОМБО x${comboCount}!`;
+            comboEl.classList.add('show');
+            setTimeout(() => comboEl.classList.remove('show'), 800);
+            score += 50 * comboCount; // Бонусные очки
+        }
+    } else {
+        comboCount = 0; // Сбрасываем при новом ходе
+    }
+ 
     let points = matched.size * 10;
     score += points;
     updateScoreUI();
+ 
+    matched.forEach(pos => {
+        const [r, c] = pos.split(',').map(Number);
+        const cell = boardEl.children[r * COLS + c];
+ 
+        // Включаем анимацию исчезновения
+        cell.classList.add('disappear'); 
+ 
+        setTimeout(() => {
+            board[r][c] = null;
+            updateCell(cell, null); // Убираем картинку
+            cell.classList.remove('disappear'); // Сбрасываем класс
+        }, 200); // Ждем 200мс
+    });
+ 
+    setTimeout(() => { 
+        dropCells(isPlayerMove); 
+    }, 250); 
+}
  
     matched.forEach(pos => {
         const [r, c] = pos.split(',').map(Number);
@@ -282,10 +322,36 @@ function explodeBombs(wasPlayerMove) {
         for (let c = 0; c < COLS; c++) {
             if (board[r][c] === 'bomb') {
                 exploded = true;
+                // Звук взрыва
+                soundBoom.currentTime = 0;
+                soundBoom.play().catch(e => {}); 
+ 
                 for (let i = -1; i <= 1; i++) {
                     for (let j = -1; j <= 1; j++) {
                         let nr = r + i, nc = c + j;
-                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) board[nr][nc] = null;
+                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                            const cell = boardEl.children[nr * COLS + nc];
+                            cell.classList.add('disappear'); // Анимация взрыва
+                            setTimeout(() => {
+                                board[nr][nc] = null;
+                                updateCell(cell, null);
+                                cell.classList.remove('disappear');
+                            }, 200);
+                        }
+                    }
+                }
+            }
+        }
+    }
+ 
+    if (exploded) {
+        score += 100;
+        updateScoreUI();
+        setTimeout(() => { dropCells(wasPlayerMove); }, 250);
+    } else {
+        checkMatchesAfterDrop(wasPlayerMove);
+    }
+}
                     }
                 }
             }
