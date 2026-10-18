@@ -5,18 +5,23 @@ const ROWS = 8;
 const COLS = 8;
 const TYPES = 6; 
 const SPRITES = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png'];
-const BOMB_SPRITE = 'bomb.png'; // Тебе понадобится картинка бомбы!
+const BOMB_SPRITE = 'bomb.png';
  
 let board = [];
 let score = 0;
-let selectedCell = null;
 let currentMode = 'classic';
 let movesLeft = 30;
 let timeLeft = 60;
 let gameInterval = null;
 let isGameOver = false;
+let isAnimating = false; // Защита от кликов во время анимации
  
-// DOM Элементы
+// Для свайпов
+let touchStartX = 0;
+let touchStartY = 0;
+let touchStartRow = null;
+let touchStartCol = null;
+ 
 const boardEl = document.getElementById('board');
 const scoreEl = document.getElementById('score-display');
 const goalEl = document.getElementById('goal-display');
@@ -24,29 +29,22 @@ const menuScreen = document.getElementById('menu');
 const gameScreen = document.getElementById('game-screen');
 const gameOverScreen = document.getElementById('game-over');
  
-// Запуск игры
 function startGame(mode) {
     currentMode = mode;
     score = 0;
     isGameOver = false;
+    isAnimating = false;
     menuScreen.style.display = 'none';
     gameOverScreen.style.display = 'none';
     gameScreen.style.display = 'flex';
  
     if (gameInterval) clearInterval(gameInterval);
  
-    if (mode === 'classic') {
+    if (mode === 'classic' || mode === 'bonus') {
         movesLeft = 30;
         goalEl.innerText = `Ходы: ${movesLeft}`;
-    } else if (mode === 'bonus') {
-        movesLeft = 30;
-        goalEl.innerText = `Ходы: ${movesLeft}`;
-    } else if (mode === 'survival') {
-        timeLeft = 60;
-        goalEl.innerText = `⏳: ${timeLeft}с`;
-        startTimer();
-    } else if (mode === 'vs') {
-        timeLeft = 45; // В соревновании 45 секунд
+    } else if (mode === 'survival' || mode === 'vs') {
+        timeLeft = mode === 'vs' ? 45 : 60;
         goalEl.innerText = `⏳: ${timeLeft}с`;
         startTimer();
     }
@@ -58,10 +56,8 @@ function startGame(mode) {
 function startTimer() {
     gameInterval = setInterval(() => {
         timeLeft--;
-        if (currentMode === 'survival' || currentMode === 'vs') goalEl.innerText = `⏳: ${timeLeft}с`;
-        if (timeLeft <= 0) {
-            endGame("Время вышло!");
-        }
+        goalEl.innerText = `⏳: ${timeLeft}с`;
+        if (timeLeft <= 0) endGame("Время вышло!");
     }, 1000);
 }
  
@@ -82,7 +78,6 @@ function endGame(reason) {
     gameScreen.style.display = 'none';
     gameOverScreen.style.display = 'flex';
  
-    // Если режим соревнования - отправляем результат в бота
     if (currentMode === 'vs') {
         tg.sendData(JSON.stringify({ action: "vs_result", score: score }));
     }
@@ -99,9 +94,10 @@ function createBoard() {
         for (let c = 0; c < COLS; c++) {
             const cell = document.createElement('div');
             cell.classList.add('cell');
+            cell.dataset.r = r;
+            cell.dataset.c = c;
  
             let type;
-            // В режиме бонусов иногда спавним бомбу
             if (currentMode === 'bonus' && Math.random() < 0.05) {
                 type = 'bomb';
             } else {
@@ -111,7 +107,13 @@ function createBoard() {
  
             board[r][c] = type;
             updateCell(cell, type);
-            cell.addEventListener('click', () => handleCellClick(r, c));
+ 
+            // Добавляем события для свайпа (Touch и Mouse)
+            cell.addEventListener('touchstart', (e) => handleStart(r, c, e), {passive: true});
+            cell.addEventListener('touchend', (e) => handleEnd(r, c, e));
+            cell.addEventListener('mousedown', (e) => handleStart(r, c, e));
+            cell.addEventListener('mouseup', (e) => handleEnd(r, c, e));
+ 
             boardEl.appendChild(cell);
         }
     }
@@ -130,72 +132,116 @@ function updateCell(cell, type) {
     }
 }
  
-function handleCellClick(r, c) {
-    if (isGameOver) return;
-    const cell = boardEl.children[r * COLS + c];
+// --- ЛОГИКА СВАЙПОВ ---
  
-    if (!selectedCell) {
-        selectedCell = { r, c, el: cell };
-        cell.style.transform = 'scale(1.1)';
-        cell.style.boxShadow = '0 0 15px white';
+function handleStart(r, c, e) {
+    if (isAnimating || isGameOver) return;
+ 
+    // Запоминаем где начали
+    if (e.type === 'touchstart') {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
     } else {
-        selectedCell.el.style.transform = 'scale(1)';
-        selectedCell.el.style.boxShadow = 'none';
-        const isNeighbor = Math.abs(selectedCell.r - r) + Math.abs(selectedCell.c - c) === 1;
- 
-        if (isNeighbor) {
-            swapCells(selectedCell.r, selectedCell.c, r, c);
-        }
-        selectedCell = null;
+        touchStartX = e.clientX;
+        touchStartY = e.clientY;
     }
+    touchStartRow = r;
+    touchStartCol = c;
+ 
+    // Подсвечиваем выбранную ячейку
+    const cell = boardEl.children[r * COLS + c];
+    cell.style.transform = 'scale(1.1)';
+    cell.style.boxShadow = '0 0 15px white';
 }
  
+function handleEnd(r, c, e) {
+    if (isAnimating || isGameOver || touchStartRow === null) return;
+ 
+    // Убираем подсветку со стартовой ячейки
+    const startCell = boardEl.children[touchStartRow * COLS + touchStartCol];
+    startCell.style.transform = 'scale(1)';
+    startCell.style.boxShadow = 'none';
+ 
+    let endX, endY;
+    if (e.type === 'touchend') {
+        endX = e.changedTouches[0].clientX;
+        endY = e.changedTouches[0].clientY;
+    } else {
+        endX = e.clientX;
+        endY = e.clientY;
+    }
+ 
+    const diffX = endX - touchStartX;
+    const diffY = endY - touchStartY;
+ 
+    // Если свайп был слишком короткий, считаем что это просто тап (ничего не делаем)
+    if (Math.abs(diffX) < 20 && Math.abs(diffY) < 20) {
+        touchStartRow = null;
+        return;
+    }
+ 
+    let targetRow = touchStartRow;
+    let targetCol = touchStartCol;
+ 
+    // Определяем направление свайпа
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+        // Горизонтальный свайп
+        targetCol += diffX > 0 ? 1 : -1;
+    } else {
+        // Вертикальный свайп
+        targetRow += diffY > 0 ? 1 : -1;
+    }
+ 
+    // Проверяем, не вышли ли за границы поля
+    if (targetRow >= 0 && targetRow < ROWS && targetCol >= 0 && targetCol < COLS) {
+        swapCells(touchStartRow, touchStartCol, targetRow, targetCol);
+    }
+ 
+    touchStartRow = null;
+}
+ 
+// --- ЛОГИКА ИГРЫ ---
+ 
 function swapCells(r1, c1, r2, c2) {
+    isAnimating = true;
     const temp = board[r1][c1];
     board[r1][c1] = board[r2][c2];
     board[r2][c2] = temp;
+ 
     updateCell(boardEl.children[r1 * COLS + c1], board[r1][c1]);
     updateCell(boardEl.children[r2 * COLS + c2], board[r2][c2]);
  
     setTimeout(() => {
-        // Проверяем, была ли бомба
         if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb') {
-            explodeBombs(); // Если бомба сместилась, она взрывается
+            explodeBombs(true); // true = ход был потрачен
         } else {
-            checkMatches();
-        }
-    }, 100);
-}
- 
-function explodeBombs() {
-    let exploded = false;
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            if (board[r][c] === 'bomb') {
-                exploded = true;
-                // Взрываем всё вокруг (радиус 1)
-                for (let i = -1; i <= 1; i++) {
-                    for (let j = -1; j <= 1; j++) {
-                        let nr = r + i, nc = c + j;
-                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                            board[nr][nc] = null;
-                        }
+            let initialMatches = findMatches();
+            if (initialMatches.size > 0) {
+                // Есть совпадение! Тратим ход и обрабатываем
+                if (currentMode === 'classic' || currentMode === 'bonus') {
+                    movesLeft--;
+                    goalEl.innerText = `Ходы: ${movesLeft}`;
+                    if (movesLeft <= 0) {
+                        processMatches(initialMatches, false); // false = не конец игры сразу, дадим каскаду упасть
+                        setTimeout(() => endGame("Ходы закончились!"), 1000);
+                        return;
                     }
                 }
+                processMatches(initialMatches, true);
+            } else {
+                // Совпадений нет - откатываем ход
+                const temp = board[r1][c1];
+                board[r1][c1] = board[r2][c2];
+                board[r2][c2] = temp;
+                updateCell(boardEl.children[r1 * COLS + c1], board[r1][c1]);
+                updateCell(boardEl.children[r2 * COLS + c2], board[r2][c2]);
+                isAnimating = false;
             }
         }
-    }
- 
-    if (exploded) {
-        score += 100; // Бонус за бомбу
-        updateScoreUI();
-        setTimeout(() => { dropCells(); }, 300);
-    } else {
-        checkMatches();
-    }
+    }, 150);
 }
  
-function checkMatches() {
+function findMatches() {
     let matched = new Set();
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS - 2; c++) {
@@ -211,19 +257,10 @@ function checkMatches() {
             }
         }
     }
-    if (matched.size > 0) {
-        processMatches(matched);
-    } else {
-        // Если ходов нет и совпадений нет, откатываем (упрощенно)
-        if (currentMode === 'classic' || currentMode === 'bonus') {
-            movesLeft--;
-            goalEl.innerText = `Ходы: ${movesLeft}`;
-            if (movesLeft <= 0) endGame("Ходы закончились!");
-        }
-    }
+    return matched;
 }
  
-function processMatches(matched) {
+function processMatches(matched, isPlayerMove) {
     let points = matched.size * 10;
     score += points;
     updateScoreUI();
@@ -234,10 +271,37 @@ function processMatches(matched) {
         updateCell(boardEl.children[r * COLS + c], null);
     });
  
-    setTimeout(() => { dropCells(); setTimeout(() => { checkMatches(); }, 100); }, 100);
+    setTimeout(() => { 
+        dropCells(isPlayerMove); 
+    }, 200);
 }
  
-function dropCells() {
+function explodeBombs(wasPlayerMove) {
+    let exploded = false;
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (board[r][c] === 'bomb') {
+                exploded = true;
+                for (let i = -1; i <= 1; i++) {
+                    for (let j = -1; j <= 1; j++) {
+                        let nr = r + i, nc = c + j;
+                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) board[nr][nc] = null;
+                    }
+                }
+            }
+        }
+    }
+ 
+    if (exploded) {
+        score += 100;
+        updateScoreUI();
+        setTimeout(() => { dropCells(wasPlayerMove); }, 200);
+    } else {
+        checkMatchesAfterDrop(wasPlayerMove);
+    }
+}
+ 
+function dropCells(wasPlayerMove) {
     for (let c = 0; c < COLS; c++) {
         let emptyRow = ROWS - 1;
         for (let r = ROWS - 1; r >= 0; r--) {
@@ -247,13 +311,38 @@ function dropCells() {
             }
         }
         for (let r = emptyRow; r >= 0; r--) {
-            // В бонусном режиме новые бомбы тоже падают
             if (currentMode === 'bonus' && Math.random() < 0.05) board[r][c] = 'bomb';
             else board[r][c] = Math.floor(Math.random() * TYPES);
         }
     }
     renderBoard();
-    setTimeout(() => { explodeBombs(); }, 100); // Проверяем, не упали ли бомбы
+    setTimeout(() => { checkMatchesAfterDrop(wasPlayerMove); }, 200);
+}
+ 
+function checkMatchesAfterDrop(wasPlayerMove) {
+    let hasBomb = false;
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (board[r][c] === 'bomb') hasBomb = true;
+        }
+    }
+ 
+    if (hasBomb && Math.random() < 0.3) { // Бомбы иногда взрываются сами при падении
+        explodeBombs(wasPlayerMove);
+        return;
+    }
+ 
+    let newMatches = findMatches();
+    if (newMatches.size > 0) {
+        // Каскадное совпадение! Очки начисляем, но ходы НЕ ТРАТИМ (isPlayerMove = false)
+        processMatches(newMatches, false);
+    } else {
+        isAnimating = false;
+        // Если это был бонусный режим и ход игрока, проверим не закончились ли ходы
+        if (wasPlayerMove && (currentMode === 'classic' || currentMode === 'bonus') && movesLeft <= 0) {
+            endGame("Ходы закончились!");
+        }
+    }
 }
  
 function renderBoard() {
