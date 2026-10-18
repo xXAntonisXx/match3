@@ -6,10 +6,7 @@
     <title>Match 3 Pro</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root {
-            --bg: #1a1a2e; --text: #ffffff; --primary: #4ecca3;
-            --btn-bg: rgba(255,255,255,0.1); --accent: #e94560;
-        }
+        :root { --bg: #1a1a2e; --text: #ffffff; --primary: #4ecca3; --btn-bg: rgba(255,255,255,0.1); --accent: #e94560; }
         body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; user-select: none; }
  
         /* Меню */
@@ -21,46 +18,30 @@
  
         /* Игра */
         #game-screen { display: none; flex-direction: column; align-items: center; width: 100%; height: 100%; }
-        .header { display: flex; justify-content: space-between; width: 90%; max-width: 400px; margin-top: 20px; font-size: 18px; font-weight: bold; background: var(--btn-bg); padding: 10px 20px; border-radius: 12px; box-sizing: border-box; }
+        .header { display: flex; justify-content: space-between; width: 90%; max-width: 400px; margin-top: 20px; font-size: 18px; font-weight: bold; background: var(--btn-bg); padding: 10px 20px; border-radius: 12px; box-sizing: border-box; z-index: 10; }
         .board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; width: 90vw; max-width: 400px; aspect-ratio: 1/1; margin-top: 20px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 15px; }
         .cell { display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; transition: transform 0.1s; }
         .cell img { width: 80%; height: 80%; object-fit: contain; pointer-events: none; }
         .cell:active { transform: scale(0.9); }
-        /* Анимация исчезновения фишек */
-.cell.disappear img {
-    animation: popOut 0.2s ease-in forwards;
-}
-@keyframes popOut {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.5); opacity: 0.5; }
-    100% { transform: scale(0); opacity: 0; }
-}
- 
-/* Текст комбо */
-#combo-text {
-    position: absolute;
-    top: 40%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 40px;
-    font-weight: bold;
-    color: #ffcc00;
-    text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.5s, transform 0.5s;
-    z-index: 100;
-}
-#combo-text.show {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.2);
-}
         .cell.bomb img { filter: drop-shadow(0 0 10px red); }
+ 
+        /* Анимация исчезновения */
+        .cell.disappear img { animation: popOut 0.2s ease-in forwards; }
+        @keyframes popOut {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+ 
+        /* Текст комбо */
+        #combo-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; font-weight: bold; color: #ffcc00; text-shadow: 0 0 10px #ff0000; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 100; }
+        #combo-text.show { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
  
         /* Кнопки управления */
         .controls { margin-top: 20px; display: flex; gap: 10px; }
         button.action { background: var(--btn-bg); color: white; border: 1px solid var(--primary); padding: 10px 20px; border-radius: 10px; font-size: 16px; cursor: pointer; }
         button.exit { background: var(--accent); border: none; }
+        button.shop { background: #f39c12; border: none; color: #1a1a2e; font-weight: bold; }
  
         /* Экран окончания игры */
         #game-over { display: none; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10; }
@@ -79,17 +60,22 @@
     </div>
  
     <!-- Экран игры -->
-    <div id="combo-text"></div>
     <div id="game-screen">
         <div class="header">
             <span id="score-display">⭐ Очки: 0</span>
             <span id="goal-display">Ходы: 30</span>
         </div>
         <div class="board" id="board"></div>
+ 
+        <!-- Кнопки управления (В меню и Магазин) -->
         <div class="controls">
             <button class="action exit" onclick="exitToMenu()">⬅️ В меню</button>
+            <button class="action shop" onclick="openShop()">💎 Магазин</button>
         </div>
     </div>
+ 
+    <!-- Текст Комбо -->
+    <div id="combo-text"></div>
  
     <!-- Экран окончания игры -->
     <div id="game-over">
