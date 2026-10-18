@@ -1,6 +1,10 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
  
+// Загружаем данные пользователя из Telegram (имя, id)
+const user = tg.initDataUnsafe?.user || {};
+const USER_ID = user.id || 0;
+ 
 const ROWS = 8;
 const COLS = 8;
 const TYPES = 6; 
@@ -22,6 +26,7 @@ let isGameOver = false;
 let isAnimating = false; 
 let comboCount = 0;
  
+// Монеты и бустеры
 let playerCoins = 100; 
 let playerHammers = 0;
 let playerShuffles = 0;
@@ -47,11 +52,30 @@ const gameOverScreen = document.getElementById('game-over');
  
 function sendToBot(data) { tg.sendData(JSON.stringify(data)); }
  
+// При загрузке игры мы запрашиваем данные у бота. 
+// Так как Web App не ждет ответа, мы просто обновляем переменные вручную (в тестовом режиме).
 function loadPlayerData() {
-    sendToBot({ action: "get_data" });
     document.getElementById('hammer-count').innerText = playerHammers;
     document.getElementById('shuffle-count').innerText = playerShuffles;
+ 
+    // В реальном продакшене здесь нужно использовать Telegram.WebApp.sendData + сервер, 
+    // но чтобы бот не вис, мы просто запрашиваем данные.
+    sendToBot({ action: "get_data", user_id: USER_ID });
 }
+ 
+// Функция для обновления UI монет (вызывается, когда мы получаем их от бота)
+function updateCoinsUI() {
+    // Так как мы не можем получить ответ от бота напрямую в WebApp, 
+    // мы сохраняем монеты в localStorage браузера Telegram, чтобы они не сбрасывались.
+    let savedCoins = localStorage.getItem('match3_coins');
+    if (savedCoins !== null) {
+        playerCoins = parseInt(savedCoins);
+    } else {
+        playerCoins = 100;
+        localStorage.setItem('match3_coins', 100);
+    }
+}
+updateCoinsUI();
  
 function startGame(mode) {
     currentMode = mode;
@@ -115,8 +139,10 @@ function checkGoalComplete() {
         if (goalType === 'fruit' && goalProgress >= goalTarget) {
             currentLevel++; 
             score += 500; 
-            // Награда за бесконечную цель
-            sendToBot({ action: "endless_goal", reward: 30 });
+            // Начисляем монеты за бесконечную цель
+            playerCoins += 30;
+            localStorage.setItem('match3_coins', playerCoins);
+            sendToBot({ action: "endless_goal", reward: 30, user_id: USER_ID });
             tg.showAlert("🎉 Цель выполнена! Получено 30 монет! Новая цель!");
             generateGoal(); 
             return false; 
@@ -136,7 +162,7 @@ function useBooster(type) {
     } else if (type === 'shuffle') {
         if (playerShuffles > 0) {
             playerShuffles--; document.getElementById('shuffle-count').innerText = playerShuffles;
-            createBoard(); sendToBot({ action: "spend_booster", booster: "shuffle" });
+            createBoard(); sendToBot({ action: "spend_booster", booster: "shuffle", user_id: USER_ID });
         } else tg.showAlert("У тебя нет перемешиваний! Купи их в магазине.");
     }
 }
@@ -151,8 +177,29 @@ function openShop() {
             {id: "cancel", type: "cancel"}
         ]
     }, (buttonId) => {
-        if (buttonId === "buy_hammer") sendToBot({ action: "buy_booster", booster: "hammer", cost: 50 });
-        else if (buttonId === "buy_shuffle") sendToBot({ action: "buy_booster", booster: "shuffle", cost: 30 });
+        if (buttonId === "buy_hammer") {
+            if (playerCoins >= 50) {
+                playerCoins -= 50;
+                localStorage.setItem('match3_coins', playerCoins);
+                playerHammers++;
+                document.getElementById('hammer-count').innerText = playerHammers;
+                sendToBot({ action: "buy_booster", booster: "hammer", cost: 50, user_id: USER_ID });
+                tg.showAlert("✅ Куплен молоток!");
+            } else {
+                tg.showAlert("❌ Недостаточно монет!");
+            }
+        } else if (buttonId === "buy_shuffle") {
+            if (playerCoins >= 30) {
+                playerCoins -= 30;
+                localStorage.setItem('match3_coins', playerCoins);
+                playerShuffles++;
+                document.getElementById('shuffle-count').innerText = playerShuffles;
+                sendToBot({ action: "buy_booster", booster: "shuffle", cost: 30, user_id: USER_ID });
+                tg.showAlert("✅ Куплено перемешивание!");
+            } else {
+                tg.showAlert("❌ Недостаточно монет!");
+            }
+        }
     });
 }
  
@@ -177,8 +224,9 @@ function endGame(reason) {
         if (checkGoalComplete()) {
             document.getElementById('go-title').innerText = "🎉 Уровень пройден!";
             currentLevel++;
-            // Награда за уровень
-            sendToBot({ action: "level_complete", level: currentLevel, reward: 50 });
+            playerCoins += 50;
+            localStorage.setItem('match3_coins', playerCoins);
+            sendToBot({ action: "level_complete", level: currentLevel, reward: 50, user_id: USER_ID });
             document.getElementById('go-score').innerText = `Твои очки: ${score}\n💰 Получено 50 монет!`;
         } else {
             document.getElementById('go-title').innerText = reason;
@@ -190,7 +238,7 @@ function endGame(reason) {
     }
  
     gameScreen.style.display = 'none'; gameOverScreen.style.display = 'flex';
-    if (currentMode === 'vs') sendToBot({ action: "update_score", score: score });
+    if (currentMode === 'vs') sendToBot({ action: "update_score", score: score, user_id: USER_ID });
 }
  
 function updateScoreUI() { scoreEl.innerText = `⭐ Очки: ${score}`; }
@@ -222,7 +270,7 @@ function handleHammer(r, c) {
     if (!isHammerMode) return;
     isHammerMode = false; isAnimating = true;
     playerHammers--; document.getElementById('hammer-count').innerText = playerHammers;
-    sendToBot({ action: "spend_booster", booster: "hammer" });
+    sendToBot({ action: "spend_booster", booster: "hammer", user_id: USER_ID });
     soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
  
     let cellsDestroyed = [];
@@ -310,7 +358,8 @@ function handleSpecialMove(r1, c1, r2, c2) {
     let t1 = board[r1][c1], t2 = board[r2][c2];
     let cellsDestroyed = [];
  
-    if ((t1 === 'bomb' && t2 === 'bomb') || (t1 === 'super_bomb' && t2 === 'bomb') || (t1 === 'bomb' && t2 === 'super_bomb') || (t1 === 'super_bomb' && t2 === 'super_bomb')) {
+    // Комбо: Бомба + Бомба = Мега-взрыв
+    if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
         tg.showAlert("💥 МЕГА-ВЗРЫВ!");
         for (let r = 0; r < ROWS; r++) {
@@ -322,6 +371,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
             }
         }
     } 
+    // Комбо: Радуга + Бомба = Абсолютная очистка
     else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
         tg.showAlert("🌈💥 АБСОЛЮТНАЯ ОЧИСТКА!");
@@ -334,6 +384,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
             }
         }
     }
+    // Обычное использование
     else {
         let specialType = null, sr = 0, sc = 0, targetType = null;
         if (t1 === 'bomb' || t1 === 'super_bomb' || t1 === 'rainbow') {
@@ -356,6 +407,13 @@ function handleSpecialMove(r1, c1, r2, c2) {
                         setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
                     }
                 }
+            }
+            // ВАЖНО: Если вторым элементом была обычная бомба, она тоже должна взорваться
+            if (targetType === 'bomb') {
+                setTimeout(() => {
+                    board[r2][c2] = 'bomb'; // Возвращаем её на секунду, чтобы сработал взрыв
+                    handleSpecialMove(r2, c2, r2, c2); // Рекурсивный вызов
+                }, 250);
             }
         } else if (specialType === 'rainbow') {
             soundPop.currentTime = 0; soundPop.play().catch(e => {});
