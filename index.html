@@ -26,6 +26,35 @@
         .cell { display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; transition: transform 0.1s; }
         .cell img { width: 80%; height: 80%; object-fit: contain; pointer-events: none; }
         .cell:active { transform: scale(0.9); }
+        /* Анимация исчезновения фишек */
+.cell.disappear img {
+    animation: popOut 0.2s ease-in forwards;
+}
+@keyframes popOut {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.5; }
+    100% { transform: scale(0); opacity: 0; }
+}
+ 
+/* Текст комбо */
+#combo-text {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 40px;
+    font-weight: bold;
+    color: #ffcc00;
+    text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s, transform 0.5s;
+    z-index: 100;
+}
+#combo-text.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
+}
         .cell.bomb img { filter: drop-shadow(0 0 10px red); }
  
         /* Кнопки управления */
@@ -50,6 +79,7 @@
     </div>
  
     <!-- Экран игры -->
+    <div id="combo-text"></div>
     <div id="game-screen">
         <div class="header">
             <span id="score-display">⭐ Очки: 0</span>
