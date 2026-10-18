@@ -35,17 +35,9 @@
         .cell.super-bomb img { filter: drop-shadow(0 0 15px orange); animation: superPulse 0.5s infinite alternate; }
         .cell.rainbow img { filter: drop-shadow(0 0 10px cyan); animation: rainbowPulse 1.5s infinite; }
  
-        @keyframes superPulse {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.15); }
-        }
-        @keyframes rainbowPulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
+        @keyframes superPulse { 0% { transform: scale(1); } 100% { transform: scale(1.15); } }
+        @keyframes rainbowPulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
  
-        /* Анимация исчезновения */
         .cell.disappear img { animation: popOut 0.2s ease-in forwards; }
         @keyframes popOut {
             0% { transform: scale(1); opacity: 1; }
@@ -53,27 +45,21 @@
             100% { transform: scale(0); opacity: 0; }
         }
  
-        /* Текст комбо */
         #combo-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; font-weight: bold; color: #ffcc00; text-shadow: 0 0 10px #ff0000; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 100; }
         #combo-text.show { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
  
-        /* Панель бустеров */
         .boosters { display: flex; justify-content: space-between; width: 90%; max-width: 400px; margin-top: 15px; gap: 10px; }
         button.action { background: var(--btn-bg); color: white; border: 1px solid var(--primary); padding: 10px 20px; border-radius: 10px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
  
         .btn-hammer { flex: 1; background: #9b59b6 !important; border: none !important; }
         .btn-shuffle { flex: 1; background: #3498db !important; border: none !important; }
- 
         .btn-menu { width: 90%; max-width: 400px; margin-top: 10px; background: var(--accent) !important; border: none !important; padding: 12px !important; font-weight: bold; }
         .btn-shop { width: 90%; max-width: 400px; margin-top: 10px; background: #f39c12 !important; border: none !important; color: #1a1a2e !important; padding: 12px !important; font-weight: bold; }
  
-        /* Экран окончания игры */
         #game-over { display: none; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10; }
     </style>
 </head>
 <body>
- 
-    <!-- Экран меню -->
     <div id="menu">
         <h1>🍉 Match 3 Pro</h1>
         <p>Выбери режим игры:</p>
@@ -81,11 +67,10 @@
         <button class="menu-btn" onclick="startGame('endless')"><span>♾️ Бесконечный</span> <span>Цели</span></button>
         <button class="menu-btn" onclick="startGame('survival')"><span>⏳ Выживание</span> <span>60 сек</span></button>
         <button class="menu-btn" onclick="startGame('vs')"><span>⚔️ Соревнование</span> <span>На время</span></button>
+        <button class="menu-btn" style="background: #8e44ad;" onclick="showTop()"><span>🏆 Топ игроков</span> <span>Рекорды</span></button>
     </div>
  
-    <!-- Экран игры -->
     <div id="game-screen">
-        <!-- Панель целей -->
         <div id="level-goal">
             <div id="goal-text">Цель: Собери 15 🍎</div>
             <div id="goal-progress">0 / 15</div>
@@ -98,7 +83,6 @@
  
         <div class="board" id="board"></div>
  
-        <!-- Панель бустеров -->
         <div class="boosters">
             <button class="action btn-hammer" onclick="useBooster('hammer')">🔨 Молоток (<span id="hammer-count">0</span>)</button>
             <button class="action btn-shuffle" onclick="useBooster('shuffle')">🔄 Микс (<span id="shuffle-count">0</span>)</button>
@@ -108,10 +92,8 @@
         <button class="action btn-menu" onclick="exitToMenu()">⬅️ В меню</button>
     </div>
  
-    <!-- Текст Комбо -->
     <div id="combo-text"></div>
  
-    <!-- Экран окончания игры -->
     <div id="game-over">
         <h1 id="go-title">Игра окончена!</h1>
         <p id="go-score" style="font-size: 24px; color: var(--primary);">Твои очки: 0</p>
