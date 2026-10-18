@@ -55,6 +55,11 @@ function loadPlayerData() {
     sendToBot({ action: "get_data" });
 }
  
+function showTop() {
+    sendToBot({ action: "get_top" });
+    tg.showAlert("Запрос отправлен! Проверь чат с ботом, там появится список лучших игроков.");
+}
+ 
 function startGame(mode) {
     currentMode = mode;
     score = 0;
@@ -320,15 +325,11 @@ function handleSpecialMove(r1, c1, r2, c2) {
     let t1 = board[r1][c1], t2 = board[r2][c2];
     let cellsDestroyed = [];
  
-    // 1. Бомба + Бомба
     if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
         tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ!");
- 
         let rA = r1, cA = c1, rB = r2, cB = c2;
         board[rA][cA] = null; board[rB][cB] = null;
- 
-        // Взрыв первой (3х3 или 5х5)
         let radA = t1 === 'super_bomb' ? 2 : 1;
         for (let i = -radA; i <= radA; i++) {
             for (let j = -radA; j <= radA; j++) {
@@ -341,7 +342,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
                 }
             }
         }
-        // Взрыв второй (3х3 или 5х5)
         let radB = t2 === 'super_bomb' ? 2 : 1;
         for (let i = -radB; i <= radB; i++) {
             for (let j = -radB; j <= radB; j++) {
@@ -355,7 +355,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
             }
         }
     } 
-    // 2. Радуга + Радуга
     else if (t1 === 'rainbow' && t2 === 'rainbow') {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
         tg.showAlert("🌈 АБСОЛЮТНАЯ ОЧИСТКА!");
@@ -368,7 +367,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
             }
         }
     }
-    // 3. Радуга + Бомба
     else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
         tg.showAlert("🌈💥 АБСОЛЮТНАЯ ОЧИСТКА!");
@@ -381,7 +379,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
             }
         }
     }
-    // 4. Обычное использование
     else {
         let specialType = null, sr = 0, sc = 0, targetType = null;
         if (t1 === 'bomb' || t1 === 'super_bomb' || t1 === 'rainbow') {
@@ -425,7 +422,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
         cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; });
         updateGoalUI(); checkGoalComplete();
     }
- 
     score += cellsDestroyed.length * 10;
     updateScoreUI();
     setTimeout(() => { dropCells(true); }, 300);
@@ -435,7 +431,6 @@ function explodeBombs(wasPlayerMove) {
     let explodedAny = false;
     let queue = []; 
  
-    // 1. Собираем все бомбы на поле
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             if (board[r][c] === 'bomb' || board[r][c] === 'super_bomb') {
@@ -447,18 +442,14 @@ function explodeBombs(wasPlayerMove) {
  
     if (queue.length > 0) {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
- 
-        // 2. Взрываем бомбы по очереди
         while (queue.length > 0) {
             let b = queue.shift();
             explodedAny = true;
             let radius = b.type === 'super_bomb' ? 2 : 1;
- 
             for (let i = -radius; i <= radius; i++) {
                 for (let j = -radius; j <= radius; j++) {
                     let nr = b.r + i, nc = b.c + j;
                     if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                        // Если попали в другую бомбу — взрываем и её!
                         if (board[nr][nc] === 'bomb' || board[nr][nc] === 'super_bomb') {
                             queue.push({r: nr, c: nc, type: board[nr][nc]});
                             board[nr][nc] = null;
@@ -476,13 +467,9 @@ function explodeBombs(wasPlayerMove) {
                 }
             }
         }
-        score += 100; 
-        updateScoreUI(); 
-        setTimeout(() => { dropCells(wasPlayerMove); }, 300); 
+        score += 100; updateScoreUI(); setTimeout(() => { dropCells(wasPlayerMove); }, 300); 
     } 
-    else { 
-        checkMatchesAfterDrop(wasPlayerMove); 
-    }
+    else { checkMatchesAfterDrop(wasPlayerMove); }
 }
  
 function findMatches() {
