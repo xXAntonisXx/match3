@@ -3,28 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Match 3</title>
+    <title>Match 3 Pro</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { margin: 0; background: #1a1a2e; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; user-select: none; }
-        .header { display: flex; justify-content: space-between; width: 90%; max-width: 400px; margin-top: 20px; font-size: 20px; font-weight: bold; background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 12px; }
+        :root {
+            --bg: #1a1a2e; --text: #ffffff; --primary: #4ecca3;
+            --btn-bg: rgba(255,255,255,0.1); --accent: #e94560;
+        }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; user-select: none; }
+ 
+        /* Меню */
+        #menu { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 20px; box-sizing: border-box; }
+        h1 { font-size: 32px; margin-bottom: 10px; text-shadow: 0 0 10px var(--primary); text-align: center; }
+        p { color: #aaa; margin-bottom: 30px; text-align: center; }
+        .menu-btn { background: var(--btn-bg); color: white; border: 2px solid rgba(255,255,255,0.2); padding: 15px 30px; margin: 10px; border-radius: 15px; font-size: 18px; font-weight: bold; width: 80%; max-width: 300px; cursor: pointer; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .menu-btn:hover { background: rgba(255,255,255,0.2); border-color: var(--primary); }
+ 
+        /* Игра */
+        #game-screen { display: none; flex-direction: column; align-items: center; width: 100%; height: 100%; }
+        .header { display: flex; justify-content: space-between; width: 90%; max-width: 400px; margin-top: 20px; font-size: 18px; font-weight: bold; background: var(--btn-bg); padding: 10px 20px; border-radius: 12px; box-sizing: border-box; }
         .board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; width: 90vw; max-width: 400px; aspect-ratio: 1/1; margin-top: 20px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 15px; }
         .cell { display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; transition: transform 0.1s; }
         .cell img { width: 80%; height: 80%; object-fit: contain; pointer-events: none; }
         .cell:active { transform: scale(0.9); }
-        .controls { margin-top: 20px; }
-        button { background: #4ecca3; color: #1a1a2e; border: none; padding: 12px 24px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .cell.bomb img { filter: drop-shadow(0 0 10px red); }
+ 
+        /* Кнопки управления */
+        .controls { margin-top: 20px; display: flex; gap: 10px; }
+        button.action { background: var(--btn-bg); color: white; border: 1px solid var(--primary); padding: 10px 20px; border-radius: 10px; font-size: 16px; cursor: pointer; }
+        button.exit { background: var(--accent); border: none; }
+ 
+        /* Экран окончания игры */
+        #game-over { display: none; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <span>⭐ Счет: <span id="score">0</span></span>
-        <span>🪙 <span id="coins">0</span></span>
+ 
+    <!-- Экран меню -->
+    <div id="menu">
+        <h1>🍉 Match 3 Pro</h1>
+        <p>Выбери режим игры:</p>
+        <button class="menu-btn" onclick="startGame('classic')"><span>🎯 Классика</span> <span>30 ходов</span></button>
+        <button class="menu-btn" onclick="startGame('bonus')"><span>💣 С бонусами</span> <span>Бомбы</span></button>
+        <button class="menu-btn" onclick="startGame('survival')"><span>⏳ Выживание</span> <span>60 сек</span></button>
+        <button class="menu-btn" onclick="startGame('vs')"><span>⚔️ Соревнование</span> <span>На время</span></button>
     </div>
-    <div class="board" id="board"></div>
-    <div class="controls">
-        <button onclick="buyBoost()">🔄 Перемешать (50 🪙)</button>
+ 
+    <!-- Экран игры -->
+    <div id="game-screen">
+        <div class="header">
+            <span id="score-display">⭐ Очки: 0</span>
+            <span id="goal-display">Ходы: 30</span>
+        </div>
+        <div class="board" id="board"></div>
+        <div class="controls">
+            <button class="action exit" onclick="exitToMenu()">⬅️ В меню</button>
+        </div>
     </div>
+ 
+    <!-- Экран окончания игры -->
+    <div id="game-over">
+        <h1 id="go-title">Игра окончена!</h1>
+        <p id="go-score" style="font-size: 24px; color: var(--primary);">Твои очки: 0</p>
+        <button class="menu-btn" style="justify-content: center;" onclick="exitToMenu()">В главное меню</button>
+    </div>
+ 
     <script src="game.js"></script>
 </body>
 </html>
