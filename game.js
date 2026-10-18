@@ -112,7 +112,7 @@ function updateGoalUI() {
 function checkGoalComplete() {
     if (currentMode === 'classic') {
         if ((goalType === 'score' && score >= goalTarget) || (goalType === 'fruit' && goalProgress >= goalTarget)) {
-            endGame("🎉 Уровень пройден!"); // Мгновенная победа!
+            endGame("🎉 Уровень пройден!");
             return true;
         }
     } else if (currentMode === 'endless') {
@@ -320,16 +320,32 @@ function handleSpecialMove(r1, c1, r2, c2) {
     let t1 = board[r1][c1], t2 = board[r2][c2];
     let cellsDestroyed = [];
  
-    // 1. Бомба + Бомба = Взрыв как у супер-бомбы (5х5)
+    // 1. Бомба + Бомба
     if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
-        tg.showAlert("💥 МОЩНЫЙ ВЗРЫВ!");
-        let sr = r1, sc = c1;
-        board[r1][c1] = null; board[r2][c2] = null;
+        tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ!");
  
-        for (let i = -2; i <= 2; i++) { // Радиус 2 (5х5)
-            for (let j = -2; j <= 2; j++) {
-                let nr = sr + i, nc = sc + j;
+        let rA = r1, cA = c1, rB = r2, cB = c2;
+        board[rA][cA] = null; board[rB][cB] = null;
+ 
+        // Взрыв первой (3х3 или 5х5)
+        let radA = t1 === 'super_bomb' ? 2 : 1;
+        for (let i = -radA; i <= radA; i++) {
+            for (let j = -radA; j <= radA; j++) {
+                let nr = rA + i, nc = cA + j;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                    cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
+                    const cell = boardEl.children[nr * COLS + nc];
+                    cell.classList.add('disappear');
+                    setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+                }
+            }
+        }
+        // Взрыв второй (3х3 или 5х5)
+        let radB = t2 === 'super_bomb' ? 2 : 1;
+        for (let i = -radB; i <= radB; i++) {
+            for (let j = -radB; j <= radB; j++) {
+                let nr = rB + i, nc = cB + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
                     cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
                     const cell = boardEl.children[nr * COLS + nc];
@@ -339,7 +355,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
             }
         }
     } 
-    // 2. Радуга + Радуга = Очистка всего поля
+    // 2. Радуга + Радуга
     else if (t1 === 'rainbow' && t2 === 'rainbow') {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
         tg.showAlert("🌈 АБСОЛЮТНАЯ ОЧИСТКА!");
@@ -352,7 +368,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
             }
         }
     }
-    // 3. Радуга + Бомба = Очистка всего поля
+    // 3. Радуга + Бомба
     else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
         tg.showAlert("🌈💥 АБСОЛЮТНАЯ ОЧИСТКА!");
@@ -413,6 +429,60 @@ function handleSpecialMove(r1, c1, r2, c2) {
     score += cellsDestroyed.length * 10;
     updateScoreUI();
     setTimeout(() => { dropCells(true); }, 300);
+}
+ 
+function explodeBombs(wasPlayerMove) { 
+    let explodedAny = false;
+    let queue = []; 
+ 
+    // 1. Собираем все бомбы на поле
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (board[r][c] === 'bomb' || board[r][c] === 'super_bomb') {
+                queue.push({r: r, c: c, type: board[r][c]});
+                board[r][c] = null;
+            }
+        }
+    }
+ 
+    if (queue.length > 0) {
+        soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
+ 
+        // 2. Взрываем бомбы по очереди
+        while (queue.length > 0) {
+            let b = queue.shift();
+            explodedAny = true;
+            let radius = b.type === 'super_bomb' ? 2 : 1;
+ 
+            for (let i = -radius; i <= radius; i++) {
+                for (let j = -radius; j <= radius; j++) {
+                    let nr = b.r + i, nc = b.c + j;
+                    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                        // Если попали в другую бомбу — взрываем и её!
+                        if (board[nr][nc] === 'bomb' || board[nr][nc] === 'super_bomb') {
+                            queue.push({r: nr, c: nc, type: board[nr][nc]});
+                            board[nr][nc] = null;
+                        }
+                        const cell = boardEl.children[nr * COLS + nc];
+                        cell.classList.add('disappear'); 
+                        setTimeout(() => { 
+                            if(board[nr][nc] !== null) {
+                                board[nr][nc] = null; 
+                                updateCell(cell, null); 
+                            }
+                            cell.classList.remove('disappear'); 
+                        }, 200);
+                    }
+                }
+            }
+        }
+        score += 100; 
+        updateScoreUI(); 
+        setTimeout(() => { dropCells(wasPlayerMove); }, 300); 
+    } 
+    else { 
+        checkMatchesAfterDrop(wasPlayerMove); 
+    }
 }
  
 function findMatches() {
