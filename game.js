@@ -1,10 +1,6 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
  
-// Загружаем данные пользователя из Telegram (имя, id)
-const user = tg.initDataUnsafe?.user || {};
-const USER_ID = user.id || 0;
- 
 const ROWS = 8;
 const COLS = 8;
 const TYPES = 6; 
@@ -26,7 +22,6 @@ let isGameOver = false;
 let isAnimating = false; 
 let comboCount = 0;
  
-// Монеты и бустеры
 let playerCoins = 100; 
 let playerHammers = 0;
 let playerShuffles = 0;
@@ -52,30 +47,13 @@ const gameOverScreen = document.getElementById('game-over');
  
 function sendToBot(data) { tg.sendData(JSON.stringify(data)); }
  
-// При загрузке игры мы запрашиваем данные у бота. 
-// Так как Web App не ждет ответа, мы просто обновляем переменные вручную (в тестовом режиме).
 function loadPlayerData() {
+    let savedCoins = localStorage.getItem('match3_coins');
+    if (savedCoins !== null) playerCoins = parseInt(savedCoins);
     document.getElementById('hammer-count').innerText = playerHammers;
     document.getElementById('shuffle-count').innerText = playerShuffles;
- 
-    // В реальном продакшене здесь нужно использовать Telegram.WebApp.sendData + сервер, 
-    // но чтобы бот не вис, мы просто запрашиваем данные.
-    sendToBot({ action: "get_data", user_id: USER_ID });
+    sendToBot({ action: "get_data" });
 }
- 
-// Функция для обновления UI монет (вызывается, когда мы получаем их от бота)
-function updateCoinsUI() {
-    // Так как мы не можем получить ответ от бота напрямую в WebApp, 
-    // мы сохраняем монеты в localStorage браузера Telegram, чтобы они не сбрасывались.
-    let savedCoins = localStorage.getItem('match3_coins');
-    if (savedCoins !== null) {
-        playerCoins = parseInt(savedCoins);
-    } else {
-        playerCoins = 100;
-        localStorage.setItem('match3_coins', 100);
-    }
-}
-updateCoinsUI();
  
 function startGame(mode) {
     currentMode = mode;
@@ -133,19 +111,17 @@ function updateGoalUI() {
  
 function checkGoalComplete() {
     if (currentMode === 'classic') {
-        if (goalType === 'score' && score >= goalTarget) return true;
-        if (goalType === 'fruit' && goalProgress >= goalTarget) return true;
+        if ((goalType === 'score' && score >= goalTarget) || (goalType === 'fruit' && goalProgress >= goalTarget)) {
+            endGame("🎉 Уровень пройден!"); // Мгновенная победа!
+            return true;
+        }
     } else if (currentMode === 'endless') {
         if (goalType === 'fruit' && goalProgress >= goalTarget) {
-            currentLevel++; 
-            score += 500; 
-            // Начисляем монеты за бесконечную цель
-            playerCoins += 30;
-            localStorage.setItem('match3_coins', playerCoins);
-            sendToBot({ action: "endless_goal", reward: 30, user_id: USER_ID });
+            currentLevel++; score += 500; 
+            playerCoins += 30; localStorage.setItem('match3_coins', playerCoins);
+            sendToBot({ action: "endless_goal", reward: 30 });
             tg.showAlert("🎉 Цель выполнена! Получено 30 монет! Новая цель!");
-            generateGoal(); 
-            return false; 
+            generateGoal(); return false; 
         }
     }
     return false;
@@ -162,7 +138,7 @@ function useBooster(type) {
     } else if (type === 'shuffle') {
         if (playerShuffles > 0) {
             playerShuffles--; document.getElementById('shuffle-count').innerText = playerShuffles;
-            createBoard(); sendToBot({ action: "spend_booster", booster: "shuffle", user_id: USER_ID });
+            createBoard(); sendToBot({ action: "spend_booster", booster: "shuffle" });
         } else tg.showAlert("У тебя нет перемешиваний! Купи их в магазине.");
     }
 }
@@ -179,26 +155,18 @@ function openShop() {
     }, (buttonId) => {
         if (buttonId === "buy_hammer") {
             if (playerCoins >= 50) {
-                playerCoins -= 50;
-                localStorage.setItem('match3_coins', playerCoins);
-                playerHammers++;
-                document.getElementById('hammer-count').innerText = playerHammers;
-                sendToBot({ action: "buy_booster", booster: "hammer", cost: 50, user_id: USER_ID });
+                playerCoins -= 50; localStorage.setItem('match3_coins', playerCoins);
+                playerHammers++; document.getElementById('hammer-count').innerText = playerHammers;
+                sendToBot({ action: "buy_booster", booster: "hammer", cost: 50 });
                 tg.showAlert("✅ Куплен молоток!");
-            } else {
-                tg.showAlert("❌ Недостаточно монет!");
-            }
+            } else tg.showAlert("❌ Недостаточно монет!");
         } else if (buttonId === "buy_shuffle") {
             if (playerCoins >= 30) {
-                playerCoins -= 30;
-                localStorage.setItem('match3_coins', playerCoins);
-                playerShuffles++;
-                document.getElementById('shuffle-count').innerText = playerShuffles;
-                sendToBot({ action: "buy_booster", booster: "shuffle", cost: 30, user_id: USER_ID });
+                playerCoins -= 30; localStorage.setItem('match3_coins', playerCoins);
+                playerShuffles++; document.getElementById('shuffle-count').innerText = playerShuffles;
+                sendToBot({ action: "buy_booster", booster: "shuffle", cost: 30 });
                 tg.showAlert("✅ Куплено перемешивание!");
-            } else {
-                tg.showAlert("❌ Недостаточно монет!");
-            }
+            } else tg.showAlert("❌ Недостаточно монет!");
         }
     });
 }
@@ -220,25 +188,19 @@ function endGame(reason) {
     isGameOver = true;
     if (gameInterval) clearInterval(gameInterval);
  
-    if (currentMode === 'classic') {
-        if (checkGoalComplete()) {
-            document.getElementById('go-title').innerText = "🎉 Уровень пройден!";
-            currentLevel++;
-            playerCoins += 50;
-            localStorage.setItem('match3_coins', playerCoins);
-            sendToBot({ action: "level_complete", level: currentLevel, reward: 50, user_id: USER_ID });
-            document.getElementById('go-score').innerText = `Твои очки: ${score}\n💰 Получено 50 монет!`;
-        } else {
-            document.getElementById('go-title').innerText = reason;
-            document.getElementById('go-score').innerText = `Твои очки: ${score}`;
-        }
+    if (currentMode === 'classic' && reason === "🎉 Уровень пройден!") {
+        currentLevel++;
+        playerCoins += 50; localStorage.setItem('match3_coins', playerCoins);
+        sendToBot({ action: "level_complete", level: currentLevel, reward: 50 });
+        document.getElementById('go-title').innerText = reason;
+        document.getElementById('go-score').innerText = `Твои очки: ${score}\n💰 Получено 50 монет!`;
     } else {
         document.getElementById('go-title').innerText = reason;
         document.getElementById('go-score').innerText = `Твои очки: ${score}`;
     }
  
     gameScreen.style.display = 'none'; gameOverScreen.style.display = 'flex';
-    if (currentMode === 'vs') sendToBot({ action: "update_score", score: score, user_id: USER_ID });
+    if (currentMode === 'vs') sendToBot({ action: "update_score", score: score });
 }
  
 function updateScoreUI() { scoreEl.innerText = `⭐ Очки: ${score}`; }
@@ -270,7 +232,7 @@ function handleHammer(r, c) {
     if (!isHammerMode) return;
     isHammerMode = false; isAnimating = true;
     playerHammers--; document.getElementById('hammer-count').innerText = playerHammers;
-    sendToBot({ action: "spend_booster", booster: "hammer", user_id: USER_ID });
+    sendToBot({ action: "spend_booster", booster: "hammer" });
     soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
  
     let cellsDestroyed = [];
@@ -358,10 +320,29 @@ function handleSpecialMove(r1, c1, r2, c2) {
     let t1 = board[r1][c1], t2 = board[r2][c2];
     let cellsDestroyed = [];
  
-    // Комбо: Бомба + Бомба = Мега-взрыв
+    // 1. Бомба + Бомба = Взрыв как у супер-бомбы (5х5)
     if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
-        tg.showAlert("💥 МЕГА-ВЗРЫВ!");
+        tg.showAlert("💥 МОЩНЫЙ ВЗРЫВ!");
+        let sr = r1, sc = c1;
+        board[r1][c1] = null; board[r2][c2] = null;
+ 
+        for (let i = -2; i <= 2; i++) { // Радиус 2 (5х5)
+            for (let j = -2; j <= 2; j++) {
+                let nr = sr + i, nc = sc + j;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                    cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
+                    const cell = boardEl.children[nr * COLS + nc];
+                    cell.classList.add('disappear');
+                    setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+                }
+            }
+        }
+    } 
+    // 2. Радуга + Радуга = Очистка всего поля
+    else if (t1 === 'rainbow' && t2 === 'rainbow') {
+        soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
+        tg.showAlert("🌈 АБСОЛЮТНАЯ ОЧИСТКА!");
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
                 cellsDestroyed.push({r: r, c: c, type: board[r][c]});
@@ -370,8 +351,8 @@ function handleSpecialMove(r1, c1, r2, c2) {
                 setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
             }
         }
-    } 
-    // Комбо: Радуга + Бомба = Абсолютная очистка
+    }
+    // 3. Радуга + Бомба = Очистка всего поля
     else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
         tg.showAlert("🌈💥 АБСОЛЮТНАЯ ОЧИСТКА!");
@@ -384,7 +365,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
             }
         }
     }
-    // Обычное использование
+    // 4. Обычное использование
     else {
         let specialType = null, sr = 0, sc = 0, targetType = null;
         if (t1 === 'bomb' || t1 === 'super_bomb' || t1 === 'rainbow') {
@@ -407,13 +388,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
                         setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
                     }
                 }
-            }
-            // ВАЖНО: Если вторым элементом была обычная бомба, она тоже должна взорваться
-            if (targetType === 'bomb') {
-                setTimeout(() => {
-                    board[r2][c2] = 'bomb'; // Возвращаем её на секунду, чтобы сработал взрыв
-                    handleSpecialMove(r2, c2, r2, c2); // Рекурсивный вызов
-                }, 250);
             }
         } else if (specialType === 'rainbow') {
             soundPop.currentTime = 0; soundPop.play().catch(e => {});
