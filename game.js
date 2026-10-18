@@ -6,9 +6,10 @@ const COLS = 8;
 const TYPES = 6; 
 const SPRITES = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png'];
 const BOMB_SPRITE = 'bomb.png';
+ 
+// Звуки (если файлов нет, игра не сломается, просто не будет звука)
 const soundPop = new Audio('pop.mp3');
 const soundBoom = new Audio('boom.mp3');
-let comboCount = 0;
  
 let board = [];
 let score = 0;
@@ -17,9 +18,10 @@ let movesLeft = 30;
 let timeLeft = 60;
 let gameInterval = null;
 let isGameOver = false;
-let isAnimating = false; // Защита от кликов во время анимации
+let isAnimating = false; 
+let comboCount = 0;
  
-// Для свайпов
+// Свайпы
 let touchStartX = 0;
 let touchStartY = 0;
 let touchStartRow = null;
@@ -37,6 +39,7 @@ function startGame(mode) {
     score = 0;
     isGameOver = false;
     isAnimating = false;
+    comboCount = 0;
     menuScreen.style.display = 'none';
     gameOverScreen.style.display = 'none';
     gameScreen.style.display = 'flex';
@@ -111,7 +114,6 @@ function createBoard() {
             board[r][c] = type;
             updateCell(cell, type);
  
-            // Добавляем события для свайпа (Touch и Mouse)
             cell.addEventListener('touchstart', (e) => handleStart(r, c, e), {passive: true});
             cell.addEventListener('touchend', (e) => handleEnd(r, c, e));
             cell.addEventListener('mousedown', (e) => handleStart(r, c, e));
@@ -135,12 +137,9 @@ function updateCell(cell, type) {
     }
 }
  
-// --- ЛОГИКА СВАЙПОВ ---
- 
+// --- СВАЙПЫ ---
 function handleStart(r, c, e) {
     if (isAnimating || isGameOver) return;
- 
-    // Запоминаем где начали
     if (e.type === 'touchstart') {
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
@@ -150,8 +149,6 @@ function handleStart(r, c, e) {
     }
     touchStartRow = r;
     touchStartCol = c;
- 
-    // Подсвечиваем выбранную ячейку
     const cell = boardEl.children[r * COLS + c];
     cell.style.transform = 'scale(1.1)';
     cell.style.boxShadow = '0 0 15px white';
@@ -160,7 +157,6 @@ function handleStart(r, c, e) {
 function handleEnd(r, c, e) {
     if (isAnimating || isGameOver || touchStartRow === null) return;
  
-    // Убираем подсветку со стартовой ячейки
     const startCell = boardEl.children[touchStartRow * COLS + touchStartCol];
     startCell.style.transform = 'scale(1)';
     startCell.style.boxShadow = 'none';
@@ -177,7 +173,6 @@ function handleEnd(r, c, e) {
     const diffX = endX - touchStartX;
     const diffY = endY - touchStartY;
  
-    // Если свайп был слишком короткий, считаем что это просто тап (ничего не делаем)
     if (Math.abs(diffX) < 20 && Math.abs(diffY) < 20) {
         touchStartRow = null;
         return;
@@ -186,25 +181,19 @@ function handleEnd(r, c, e) {
     let targetRow = touchStartRow;
     let targetCol = touchStartCol;
  
-    // Определяем направление свайпа
     if (Math.abs(diffX) > Math.abs(diffY)) {
-        // Горизонтальный свайп
         targetCol += diffX > 0 ? 1 : -1;
     } else {
-        // Вертикальный свайп
         targetRow += diffY > 0 ? 1 : -1;
     }
  
-    // Проверяем, не вышли ли за границы поля
     if (targetRow >= 0 && targetRow < ROWS && targetCol >= 0 && targetCol < COLS) {
         swapCells(touchStartRow, touchStartCol, targetRow, targetCol);
     }
- 
     touchStartRow = null;
 }
  
-// --- ЛОГИКА ИГРЫ ---
- 
+// --- ЛОГИКА ---
 function swapCells(r1, c1, r2, c2) {
     isAnimating = true;
     const temp = board[r1][c1];
@@ -216,23 +205,21 @@ function swapCells(r1, c1, r2, c2) {
  
     setTimeout(() => {
         if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb') {
-            explodeBombs(true); // true = ход был потрачен
+            explodeBombs(true);
         } else {
             let initialMatches = findMatches();
             if (initialMatches.size > 0) {
-                // Есть совпадение! Тратим ход и обрабатываем
                 if (currentMode === 'classic' || currentMode === 'bonus') {
                     movesLeft--;
                     goalEl.innerText = `Ходы: ${movesLeft}`;
                     if (movesLeft <= 0) {
-                        processMatches(initialMatches, false); // false = не конец игры сразу, дадим каскаду упасть
+                        processMatches(initialMatches, false); 
                         setTimeout(() => endGame("Ходы закончились!"), 1000);
                         return;
                     }
                 }
                 processMatches(initialMatches, true);
             } else {
-                // Совпадений нет - откатываем ход
                 const temp = board[r1][c1];
                 board[r1][c1] = board[r2][c2];
                 board[r2][c2] = temp;
@@ -264,11 +251,8 @@ function findMatches() {
 }
  
 function processMatches(matched, isPlayerMove) {
-    // Звук
-    soundPop.currentTime = 0;
-    soundPop.play().catch(e => {}); 
+    soundPop.currentTime = 0; soundPop.play().catch(e => {}); 
  
-    // Логика комбо (если это не ход игрока, а каскад)
     if (!isPlayerMove) {
         comboCount++;
         if (comboCount > 1) {
@@ -276,10 +260,10 @@ function processMatches(matched, isPlayerMove) {
             comboEl.innerText = `КОМБО x${comboCount}!`;
             comboEl.classList.add('show');
             setTimeout(() => comboEl.classList.remove('show'), 800);
-            score += 50 * comboCount; // Бонусные очки
+            score += 50 * comboCount;
         }
     } else {
-        comboCount = 0; // Сбрасываем при новом ходе
+        comboCount = 0;
     }
  
     let points = matched.size * 10;
@@ -289,31 +273,15 @@ function processMatches(matched, isPlayerMove) {
     matched.forEach(pos => {
         const [r, c] = pos.split(',').map(Number);
         const cell = boardEl.children[r * COLS + c];
- 
-        // Включаем анимацию исчезновения
         cell.classList.add('disappear'); 
- 
         setTimeout(() => {
             board[r][c] = null;
-            updateCell(cell, null); // Убираем картинку
-            cell.classList.remove('disappear'); // Сбрасываем класс
-        }, 200); // Ждем 200мс
+            updateCell(cell, null); 
+            cell.classList.remove('disappear');
+        }, 200);
     });
  
-    setTimeout(() => { 
-        dropCells(isPlayerMove); 
-    }, 250); 
-}
- 
-    matched.forEach(pos => {
-        const [r, c] = pos.split(',').map(Number);
-        board[r][c] = null;
-        updateCell(boardEl.children[r * COLS + c], null);
-    });
- 
-    setTimeout(() => { 
-        dropCells(isPlayerMove); 
-    }, 200);
+    setTimeout(() => { dropCells(isPlayerMove); }, 250); 
 }
  
 function explodeBombs(wasPlayerMove) {
@@ -322,16 +290,13 @@ function explodeBombs(wasPlayerMove) {
         for (let c = 0; c < COLS; c++) {
             if (board[r][c] === 'bomb') {
                 exploded = true;
-                // Звук взрыва
-                soundBoom.currentTime = 0;
-                soundBoom.play().catch(e => {}); 
- 
+                soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); 
                 for (let i = -1; i <= 1; i++) {
                     for (let j = -1; j <= 1; j++) {
                         let nr = r + i, nc = c + j;
                         if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
                             const cell = boardEl.children[nr * COLS + nc];
-                            cell.classList.add('disappear'); // Анимация взрыва
+                            cell.classList.add('disappear');
                             setTimeout(() => {
                                 board[nr][nc] = null;
                                 updateCell(cell, null);
@@ -348,20 +313,6 @@ function explodeBombs(wasPlayerMove) {
         score += 100;
         updateScoreUI();
         setTimeout(() => { dropCells(wasPlayerMove); }, 250);
-    } else {
-        checkMatchesAfterDrop(wasPlayerMove);
-    }
-}
-                    }
-                }
-            }
-        }
-    }
- 
-    if (exploded) {
-        score += 100;
-        updateScoreUI();
-        setTimeout(() => { dropCells(wasPlayerMove); }, 200);
     } else {
         checkMatchesAfterDrop(wasPlayerMove);
     }
@@ -393,18 +344,16 @@ function checkMatchesAfterDrop(wasPlayerMove) {
         }
     }
  
-    if (hasBomb && Math.random() < 0.3) { // Бомбы иногда взрываются сами при падении
+    if (hasBomb && Math.random() < 0.3) {
         explodeBombs(wasPlayerMove);
         return;
     }
  
     let newMatches = findMatches();
     if (newMatches.size > 0) {
-        // Каскадное совпадение! Очки начисляем, но ходы НЕ ТРАТИМ (isPlayerMove = false)
         processMatches(newMatches, false);
     } else {
         isAnimating = false;
-        // Если это был бонусный режим и ход игрока, проверим не закончились ли ходы
         if (wasPlayerMove && (currentMode === 'classic' || currentMode === 'bonus') && movesLeft <= 0) {
             endGame("Ходы закончились!");
         }
