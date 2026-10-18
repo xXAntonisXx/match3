@@ -6,6 +6,7 @@ const COLS = 8;
 const TYPES = 6; 
 const SPRITES = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png'];
 const BOMB_SPRITE = 'bomb.png';
+const RAINBOW_SPRITE = 'rainbow.png'; // Тебе понадобится картинка радуги на GitHub
  
 const soundPop = new Audio('pop.mp3');
 const soundBoom = new Audio('boom.mp3');
@@ -43,9 +44,7 @@ const menuScreen = document.getElementById('menu');
 const gameScreen = document.getElementById('game-screen');
 const gameOverScreen = document.getElementById('game-over');
  
-function sendToBot(data) {
-    tg.sendData(JSON.stringify(data));
-}
+function sendToBot(data) { tg.sendData(JSON.stringify(data)); }
  
 function loadPlayerData() {
     sendToBot({ action: "get_data" });
@@ -199,12 +198,14 @@ function createBoard() {
         for (let c = 0; c < COLS; c++) {
             const cell = document.createElement('div');
             cell.classList.add('cell');
-            let type;
-            if (currentMode === 'bonus' && Math.random() < 0.05) { type = 'bomb'; } 
-            else {
-                do { type = Math.floor(Math.random() * TYPES); } 
-                while ((c >= 2 && board[r][c-1] === type && board[r][c-2] === type) || (r >= 2 && board[r-1][c] === type && board[r-2][c] === type));
+            let type = Math.floor(Math.random() * TYPES);
+ 
+            // Не даем собраться линиям при старте
+            while ((c >= 2 && board[r][c-1] === type && board[r][c-2] === type) || 
+                   (r >= 2 && board[r-1][c] === type && board[r-2][c] === type)) {
+                type = Math.floor(Math.random() * TYPES);
             }
+ 
             board[r][c] = type;
             updateCell(cell, type);
             cell.addEventListener('touchstart', (e) => { if (isHammerMode) handleHammer(r, c); else handleStart(r, c, e); }, {passive: true});
@@ -237,9 +238,10 @@ function handleHammer(r, c) {
 }
  
 function updateCell(cell, type) {
-    if (type === null) { cell.innerHTML = ''; cell.classList.remove('bomb'); } 
-    else if (type === 'bomb') { cell.innerHTML = `<img src="${BOMB_SPRITE}" alt="bomb">`; cell.classList.add('bomb'); } 
-    else { cell.innerHTML = `<img src="${SPRITES[type]}" alt="fruit">`; cell.classList.remove('bomb'); }
+    if (type === null) { cell.innerHTML = ''; cell.classList.remove('bomb', 'rainbow'); } 
+    else if (type === 'bomb') { cell.innerHTML = `<img src="${BOMB_SPRITE}" alt="bomb">`; cell.classList.add('bomb'); cell.classList.remove('rainbow'); } 
+    else if (type === 'rainbow') { cell.innerHTML = `<img src="${RAINBOW_SPRITE}" alt="rainbow">`; cell.classList.add('rainbow'); cell.classList.remove('bomb'); }
+    else { cell.innerHTML = `<img src="${SPRITES[type]}" alt="fruit">`; cell.classList.remove('bomb', 'rainbow'); }
 }
  
 function handleStart(r, c, e) {
@@ -272,9 +274,12 @@ function swapCells(r1, c1, r2, c2) {
     const temp = board[r1][c1]; board[r1][c1] = board[r2][c2]; board[r2][c2] = temp;
     updateCell(boardEl.children[r1 * COLS + c1], board[r1][c1]);
     updateCell(boardEl.children[r2 * COLS + c2], board[r2][c2]);
+ 
     setTimeout(() => {
-        if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb') { explodeBombs(true); } 
-        else {
+        // Если сдвинули бомбу или радугу
+        if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb' || board[r1][c1] === 'rainbow' || board[r2][c2] === 'rainbow') {
+            handleSpecialMove(r1, c1, r2, c2); 
+        } else {
             let initialMatches = findMatches();
             if (initialMatches.size > 0) {
                 if (currentMode === 'classic' || currentMode === 'bonus') {
@@ -283,6 +288,7 @@ function swapCells(r1, c1, r2, c2) {
                 }
                 processMatches(initialMatches, true);
             } else {
+                // Откат
                 const temp = board[r1][c1]; board[r1][c1] = board[r2][c2]; board[r2][c2] = temp;
                 updateCell(boardEl.children[r1 * COLS + c1], board[r1][c1]);
                 updateCell(boardEl.children[r2 * COLS + c2], board[r2][c2]);
@@ -292,18 +298,62 @@ function swapCells(r1, c1, r2, c2) {
     }, 150);
 }
  
+// Обработка перемещения спец-фишек (Бомба и Радуга)
+function handleSpecialMove(r1, c1, r2, c2) {
+    let specialType = null, sr = 0, sc = 0, targetType = null;
+ 
+    if (board[r1][c1] === 'bomb' || board[r1][c1] === 'rainbow') {
+        specialType = board[r1][c1]; sr = r1; sc = c1; targetType = board[r2][c2];
+    } else {
+        specialType = board[r2][c2]; sr = r2; sc = c2; targetType = board[r1][c1];
+    }
+ 
+    // Взрываем только одну конкретную бомбу или юзаем радугу
+    if (specialType === 'bomb') {
+        soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
+        board[sr][sc] = null;
+        for (let i = -1; i <= 1; i++) {
+            for (let j = -1; j <= 1; j++) {
+                let nr = sr + i, nc = sc + j;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                    const cell = boardEl.children[nr * COLS + nc];
+                    cell.classList.add('disappear');
+                    setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+                }
+            }
+        }
+    } else if (specialType === 'rainbow') {
+        soundPop.currentTime = 0; soundPop.play().catch(e => {});
+        // Удаляем радугу и все фишки такого же типа, как targetType
+        board[sr][sc] = null;
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (board[r][c] === targetType) {
+                    const cell = boardEl.children[r * COLS + c];
+                    cell.classList.add('disappear');
+                    setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+                }
+            }
+        }
+    }
+ 
+    score += 150;
+    updateScoreUI();
+    setTimeout(() => { dropCells(true); }, 300);
+}
+ 
 function findMatches() {
     let matched = new Set();
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS - 2; c++) {
-            if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
+            if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
                 matched.add(`${r},${c}`); matched.add(`${r},${c+1}`); matched.add(`${r},${c+2}`);
             }
         }
     }
     for (let c = 0; c < COLS; c++) {
         for (let r = 0; r < ROWS - 2; r++) {
-            if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
+            if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
                 matched.add(`${r},${c}`); matched.add(`${r+1},${c}`); matched.add(`${r+2},${c}`);
             }
         }
@@ -323,7 +373,74 @@ function processMatches(matched, isPlayerMove) {
         }
     } else { comboCount = 0; }
  
+    // Группируем фишки по линиям, чтобы понять, где ставить бомбы и радуги
+    let lines = [];
+ 
+    // Горизонтальные
+    for (let r = 0; r < ROWS; r++) {
+        let count = 1;
+        for (let c = 1; c <= COLS; c++) {
+            if (c < COLS && board[r][c] !== null && board[r][c] === board[r][c-1] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow') {
+                count++;
+            } else {
+                if (count >= 3) {
+                    let line = [];
+                    for(let i=0; i<count; i++) line.push({r: r, c: c-1-i});
+                    lines.push({cells: line, type: board[r][c-1], count: count});
+                }
+                count = 1;
+            }
+        }
+    }
+ 
+    // Вертикальные
+    for (let c = 0; c < COLS; c++) {
+        let count = 1;
+        for (let r = 1; r <= ROWS; r++) {
+            if (r < ROWS && board[r][c] !== null && board[r][c] === board[r-1][c] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow') {
+                count++;
+            } else {
+                if (count >= 3) {
+                    let line = [];
+                    for(let i=0; i<count; i++) line.push({r: r-1-i, c: c});
+                    lines.push({cells: line, type: board[r-1][c], count: count});
+                }
+                count = 1;
+            }
+        }
+    }
+ 
+    // Определяем, что создать (Бомбу или Радугу)
+    let spawns = [];
+    lines.forEach(line => {
+        if (line.count === 4) {
+            let mid = line.cells[1];
+            spawns.push({r: mid.r, c: mid.c, type: 'bomb'});
+        } else if (line.count >= 5) {
+            let mid = line.cells[2];
+            spawns.push({r: mid.r, c: mid.c, type: 'rainbow'});
+        }
+    });
+ 
+    // Очищаем совпавшие клетки
+    matched.forEach(pos => {
+        const [r, c] = pos.split(',').map(Number);
+        // Пропускаем те, где появятся бомбы/радуги
+        if (!spawns.find(s => s.r === r && s.c === c)) {
+            const cell = boardEl.children[r * COLS + c];
+            cell.classList.add('disappear'); 
+            setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+        }
+    });
+ 
+    // Спавним награды
+    spawns.forEach(s => {
+        board[s.r][s.c] = s.type;
+        updateCell(boardEl.children[s.r * COLS + s.c], s.type);
+    });
+ 
     if (currentMode === 'classic' && goalType === 'fruit') {
+        // Учитываем прогресс
         matched.forEach(pos => { const [r, c] = pos.split(',').map(Number); if (board[r][c] === goalFruitIndex) goalProgress++; });
         updateGoalUI();
     }
@@ -331,36 +448,7 @@ function processMatches(matched, isPlayerMove) {
     let points = matched.size * 10; score += points; updateScoreUI();
     if (goalType === 'score') updateGoalUI();
  
-    matched.forEach(pos => {
-        const [r, c] = pos.split(',').map(Number);
-        const cell = boardEl.children[r * COLS + c];
-        cell.classList.add('disappear'); 
-        setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-    });
     setTimeout(() => { dropCells(isPlayerMove); }, 250); 
-}
- 
-function explodeBombs(wasPlayerMove) { 
-    let exploded = false;
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            if (board[r][c] === 'bomb') {
-                exploded = true; soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); 
-                for (let i = -1; i <= 1; i++) {
-                    for (let j = -1; j <= 1; j++) {
-                        let nr = r + i, nc = c + j;
-                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                            const cell = boardEl.children[nr * COLS + nc];
-                            cell.classList.add('disappear'); 
-                            setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    if (exploded) { score += 100; updateScoreUI(); setTimeout(() => { dropCells(wasPlayerMove); }, 250); } 
-    else { checkMatchesAfterDrop(wasPlayerMove); }
 }
  
 function dropCells(wasPlayerMove) {
@@ -373,8 +461,7 @@ function dropCells(wasPlayerMove) {
             }
         }
         for (let r = emptyRow; r >= 0; r--) {
-            if (currentMode === 'bonus' && Math.random() < 0.05) board[r][c] = 'bomb';
-            else board[r][c] = Math.floor(Math.random() * TYPES);
+            board[r][c] = Math.floor(Math.random() * TYPES);
         }
     }
     renderBoard();
@@ -382,9 +469,6 @@ function dropCells(wasPlayerMove) {
 }
  
 function checkMatchesAfterDrop(wasPlayerMove) {
-    let hasBomb = false;
-    for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { if (board[r][c] === 'bomb') hasBomb = true; } }
-    if (hasBomb && Math.random() < 0.3) { explodeBombs(wasPlayerMove); return; }
     let newMatches = findMatches();
     if (newMatches.size > 0) { processMatches(newMatches, false); } 
     else {
