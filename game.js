@@ -6,7 +6,7 @@ const COLS = 8;
 const TYPES = 6; 
 const SPRITES = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png'];
 const BOMB_SPRITE = 'bomb.png';
-const RAINBOW_SPRITE = 'rainbow.png'; // Тебе понадобится картинка радуги на GitHub
+const RAINBOW_SPRITE = 'rainbow.png'; 
  
 const soundPop = new Audio('pop.mp3');
 const soundBoom = new Audio('boom.mp3');
@@ -200,7 +200,6 @@ function createBoard() {
             cell.classList.add('cell');
             let type = Math.floor(Math.random() * TYPES);
  
-            // Не даем собраться линиям при старте
             while ((c >= 2 && board[r][c-1] === type && board[r][c-2] === type) || 
                    (r >= 2 && board[r-1][c] === type && board[r-2][c] === type)) {
                 type = Math.floor(Math.random() * TYPES);
@@ -224,16 +223,25 @@ function handleHammer(r, c) {
     sendToBot({ action: "spend_booster", booster: "hammer" });
     soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
  
+    let cellsDestroyed = [];
+ 
     for (let i = -1; i <= 1; i++) {
         for (let j = -1; j <= 1; j++) {
             let nr = r + i, nc = c + j;
             if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
                 const cell = boardEl.children[nr * COLS + nc];
                 cell.classList.add('disappear');
                 setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
             }
         }
     }
+ 
+    if (currentMode === 'classic' && goalType === 'fruit') {
+        cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; });
+        updateGoalUI();
+    }
+ 
     setTimeout(() => { dropCells(true); }, 250);
 }
  
@@ -276,7 +284,6 @@ function swapCells(r1, c1, r2, c2) {
     updateCell(boardEl.children[r2 * COLS + c2], board[r2][c2]);
  
     setTimeout(() => {
-        // Если сдвинули бомбу или радугу
         if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb' || board[r1][c1] === 'rainbow' || board[r2][c2] === 'rainbow') {
             handleSpecialMove(r1, c1, r2, c2); 
         } else {
@@ -288,7 +295,6 @@ function swapCells(r1, c1, r2, c2) {
                 }
                 processMatches(initialMatches, true);
             } else {
-                // Откат
                 const temp = board[r1][c1]; board[r1][c1] = board[r2][c2]; board[r2][c2] = temp;
                 updateCell(boardEl.children[r1 * COLS + c1], board[r1][c1]);
                 updateCell(boardEl.children[r2 * COLS + c2], board[r2][c2]);
@@ -298,7 +304,6 @@ function swapCells(r1, c1, r2, c2) {
     }, 150);
 }
  
-// Обработка перемещения спец-фишек (Бомба и Радуга)
 function handleSpecialMove(r1, c1, r2, c2) {
     let specialType = null, sr = 0, sc = 0, targetType = null;
  
@@ -308,7 +313,8 @@ function handleSpecialMove(r1, c1, r2, c2) {
         specialType = board[r2][c2]; sr = r2; sc = c2; targetType = board[r1][c1];
     }
  
-    // Взрываем только одну конкретную бомбу или юзаем радугу
+    let cellsDestroyed = [];
+ 
     if (specialType === 'bomb') {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
         board[sr][sc] = null;
@@ -316,6 +322,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
             for (let j = -1; j <= 1; j++) {
                 let nr = sr + i, nc = sc + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                    cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
                     const cell = boardEl.children[nr * COLS + nc];
                     cell.classList.add('disappear');
                     setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
@@ -324,17 +331,22 @@ function handleSpecialMove(r1, c1, r2, c2) {
         }
     } else if (specialType === 'rainbow') {
         soundPop.currentTime = 0; soundPop.play().catch(e => {});
-        // Удаляем радугу и все фишки такого же типа, как targetType
         board[sr][sc] = null;
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
                 if (board[r][c] === targetType) {
+                    cellsDestroyed.push({r: r, c: c, type: board[r][c]});
                     const cell = boardEl.children[r * COLS + c];
                     cell.classList.add('disappear');
                     setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
                 }
             }
         }
+    }
+ 
+    if (currentMode === 'classic' && goalType === 'fruit') {
+        cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; });
+        updateGoalUI();
     }
  
     score += 150;
@@ -373,16 +385,12 @@ function processMatches(matched, isPlayerMove) {
         }
     } else { comboCount = 0; }
  
-    // Группируем фишки по линиям, чтобы понять, где ставить бомбы и радуги
     let lines = [];
- 
-    // Горизонтальные
     for (let r = 0; r < ROWS; r++) {
         let count = 1;
         for (let c = 1; c <= COLS; c++) {
-            if (c < COLS && board[r][c] !== null && board[r][c] === board[r][c-1] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow') {
-                count++;
-            } else {
+            if (c < COLS && board[r][c] !== null && board[r][c] === board[r][c-1] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow') count++;
+            else {
                 if (count >= 3) {
                     let line = [];
                     for(let i=0; i<count; i++) line.push({r: r, c: c-1-i});
@@ -392,14 +400,11 @@ function processMatches(matched, isPlayerMove) {
             }
         }
     }
- 
-    // Вертикальные
     for (let c = 0; c < COLS; c++) {
         let count = 1;
         for (let r = 1; r <= ROWS; r++) {
-            if (r < ROWS && board[r][c] !== null && board[r][c] === board[r-1][c] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow') {
-                count++;
-            } else {
+            if (r < ROWS && board[r][c] !== null && board[r][c] === board[r-1][c] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow') count++;
+            else {
                 if (count >= 3) {
                     let line = [];
                     for(let i=0; i<count; i++) line.push({r: r-1-i, c: c});
@@ -410,7 +415,6 @@ function processMatches(matched, isPlayerMove) {
         }
     }
  
-    // Определяем, что создать (Бомбу или Радугу)
     let spawns = [];
     lines.forEach(line => {
         if (line.count === 4) {
@@ -422,10 +426,8 @@ function processMatches(matched, isPlayerMove) {
         }
     });
  
-    // Очищаем совпавшие клетки
     matched.forEach(pos => {
         const [r, c] = pos.split(',').map(Number);
-        // Пропускаем те, где появятся бомбы/радуги
         if (!spawns.find(s => s.r === r && s.c === c)) {
             const cell = boardEl.children[r * COLS + c];
             cell.classList.add('disappear'); 
@@ -433,14 +435,12 @@ function processMatches(matched, isPlayerMove) {
         }
     });
  
-    // Спавним награды
     spawns.forEach(s => {
         board[s.r][s.c] = s.type;
         updateCell(boardEl.children[s.r * COLS + s.c], s.type);
     });
  
     if (currentMode === 'classic' && goalType === 'fruit') {
-        // Учитываем прогресс
         matched.forEach(pos => { const [r, c] = pos.split(',').map(Number); if (board[r][c] === goalFruitIndex) goalProgress++; });
         updateGoalUI();
     }
