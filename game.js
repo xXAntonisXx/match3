@@ -6,6 +6,7 @@ const COLS = 8;
 const TYPES = 6; 
 const SPRITES = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png'];
 const BOMB_SPRITE = 'bomb.png';
+const SUPER_BOMB_SPRITE = 'super_bomb.png'; 
 const RAINBOW_SPRITE = 'rainbow.png'; 
  
 const soundPop = new Audio('pop.mp3');
@@ -93,10 +94,8 @@ function generateGoal() {
     } else {
         goalType = 'fruit';
         goalFruitIndex = Math.floor(Math.random() * TYPES);
- 
         let baseTarget = currentMode === 'endless' ? 15 : 10;
         goalTarget = baseTarget + (currentLevel * 3); 
- 
         goalTextEl.innerHTML = `Цель: Собери ${goalTarget} <img src="${SPRITES[goalFruitIndex]}" style="width: 20px; vertical-align: middle;">`;
         goalProgress = 0;
     }
@@ -104,11 +103,8 @@ function generateGoal() {
 }
  
 function updateGoalUI() {
-    if (goalType === 'score') {
-        goalProgressEl.innerText = `${score} / ${goalTarget}`;
-    } else if (goalType === 'fruit') {
-        goalProgressEl.innerText = `${goalProgress} / ${goalTarget}`;
-    }
+    if (goalType === 'score') goalProgressEl.innerText = `${score} / ${goalTarget}`;
+    else if (goalType === 'fruit') goalProgressEl.innerText = `${goalProgress} / ${goalTarget}`;
 }
  
 function checkGoalComplete() {
@@ -119,8 +115,10 @@ function checkGoalComplete() {
         if (goalType === 'fruit' && goalProgress >= goalTarget) {
             currentLevel++; 
             score += 500; 
-            tg.showAlert("🎉 Цель выполнена! Новая цель!");
-            generateGoal();
+            // Награда за бесконечную цель
+            sendToBot({ action: "endless_goal", reward: 30 });
+            tg.showAlert("🎉 Цель выполнена! Получено 30 монет! Новая цель!");
+            generateGoal(); 
             return false; 
         }
     }
@@ -134,18 +132,12 @@ function useBooster(type) {
             isHammerMode = !isHammerMode; 
             if (isHammerMode) tg.showAlert("Режим молотка ВКЛ. Нажми на фишку!");
             else tg.showAlert("Режим молотка ВЫКЛ.");
-        } else {
-            tg.showAlert("У тебя нет молотков! Купи их в магазине.");
-        }
+        } else tg.showAlert("У тебя нет молотков! Купи их в магазине.");
     } else if (type === 'shuffle') {
         if (playerShuffles > 0) {
-            playerShuffles--;
-            document.getElementById('shuffle-count').innerText = playerShuffles;
-            createBoard();
-            sendToBot({ action: "spend_booster", booster: "shuffle" });
-        } else {
-            tg.showAlert("У тебя нет перемешиваний! Купи их в магазине.");
-        }
+            playerShuffles--; document.getElementById('shuffle-count').innerText = playerShuffles;
+            createBoard(); sendToBot({ action: "spend_booster", booster: "shuffle" });
+        } else tg.showAlert("У тебя нет перемешиваний! Купи их в магазине.");
     }
 }
  
@@ -166,17 +158,14 @@ function openShop() {
  
 function startTimer() {
     gameInterval = setInterval(() => {
-        timeLeft--;
-        goalEl.innerText = `⏳: ${timeLeft}с`;
+        timeLeft--; goalEl.innerText = `⏳: ${timeLeft}с`;
         if (timeLeft <= 0) endGame("Время вышло!");
     }, 1000);
 }
  
 function exitToMenu() {
     if (gameInterval) clearInterval(gameInterval);
-    gameScreen.style.display = 'none';
-    gameOverScreen.style.display = 'none';
-    menuScreen.style.display = 'flex';
+    gameScreen.style.display = 'none'; gameOverScreen.style.display = 'none'; menuScreen.style.display = 'flex';
 }
  
 function endGame(reason) {
@@ -188,18 +177,19 @@ function endGame(reason) {
         if (checkGoalComplete()) {
             document.getElementById('go-title').innerText = "🎉 Уровень пройден!";
             currentLevel++;
-            sendToBot({ action: "level_complete", level: currentLevel });
+            // Награда за уровень
+            sendToBot({ action: "level_complete", level: currentLevel, reward: 50 });
+            document.getElementById('go-score').innerText = `Твои очки: ${score}\n💰 Получено 50 монет!`;
         } else {
             document.getElementById('go-title').innerText = reason;
+            document.getElementById('go-score').innerText = `Твои очки: ${score}`;
         }
     } else {
         document.getElementById('go-title').innerText = reason;
+        document.getElementById('go-score').innerText = `Твои очки: ${score}`;
     }
  
-    document.getElementById('go-score').innerText = `Твои очки: ${score}`;
-    gameScreen.style.display = 'none';
-    gameOverScreen.style.display = 'flex';
- 
+    gameScreen.style.display = 'none'; gameOverScreen.style.display = 'flex';
     if (currentMode === 'vs') sendToBot({ action: "update_score", score: score });
 }
  
@@ -213,12 +203,10 @@ function createBoard() {
             const cell = document.createElement('div');
             cell.classList.add('cell');
             let type = Math.floor(Math.random() * TYPES);
- 
             while ((c >= 2 && board[r][c-1] === type && board[r][c-2] === type) || 
                    (r >= 2 && board[r-1][c] === type && board[r-2][c] === type)) {
                 type = Math.floor(Math.random() * TYPES);
             }
- 
             board[r][c] = type;
             updateCell(cell, type);
             cell.addEventListener('touchstart', (e) => { if (isHammerMode) handleHammer(r, c); else handleStart(r, c, e); }, {passive: true});
@@ -238,7 +226,6 @@ function handleHammer(r, c) {
     soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
  
     let cellsDestroyed = [];
- 
     for (let i = -1; i <= 1; i++) {
         for (let j = -1; j <= 1; j++) {
             let nr = r + i, nc = c + j;
@@ -250,21 +237,19 @@ function handleHammer(r, c) {
             }
         }
     }
- 
     if (goalType === 'fruit') {
         cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; });
-        updateGoalUI();
-        checkGoalComplete();
+        updateGoalUI(); checkGoalComplete();
     }
- 
     setTimeout(() => { dropCells(true); }, 250);
 }
  
 function updateCell(cell, type) {
-    if (type === null) { cell.innerHTML = ''; cell.classList.remove('bomb', 'rainbow'); } 
-    else if (type === 'bomb') { cell.innerHTML = `<img src="${BOMB_SPRITE}" alt="bomb">`; cell.classList.add('bomb'); cell.classList.remove('rainbow'); } 
-    else if (type === 'rainbow') { cell.innerHTML = `<img src="${RAINBOW_SPRITE}" alt="rainbow">`; cell.classList.add('rainbow'); cell.classList.remove('bomb'); }
-    else { cell.innerHTML = `<img src="${SPRITES[type]}" alt="fruit">`; cell.classList.remove('bomb', 'rainbow'); }
+    if (type === null) { cell.innerHTML = ''; cell.classList.remove('bomb', 'rainbow', 'super-bomb'); } 
+    else if (type === 'bomb') { cell.innerHTML = `<img src="${BOMB_SPRITE}" alt="bomb">`; cell.classList.add('bomb'); cell.classList.remove('rainbow', 'super-bomb'); } 
+    else if (type === 'super_bomb') { cell.innerHTML = `<img src="${SUPER_BOMB_SPRITE}" alt="super_bomb">`; cell.classList.add('super-bomb'); cell.classList.remove('rainbow', 'bomb'); } 
+    else if (type === 'rainbow') { cell.innerHTML = `<img src="${RAINBOW_SPRITE}" alt="rainbow">`; cell.classList.add('rainbow'); cell.classList.remove('bomb', 'super-bomb'); }
+    else { cell.innerHTML = `<img src="${SPRITES[type]}" alt="fruit">`; cell.classList.remove('bomb', 'rainbow', 'super-bomb'); }
 }
  
 function handleStart(r, c, e) {
@@ -299,7 +284,9 @@ function swapCells(r1, c1, r2, c2) {
     updateCell(boardEl.children[r2 * COLS + c2], board[r2][c2]);
  
     setTimeout(() => {
-        if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb' || board[r1][c1] === 'rainbow' || board[r2][c2] === 'rainbow') {
+        if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb' || 
+            board[r1][c1] === 'super_bomb' || board[r2][c2] === 'super_bomb' ||
+            board[r1][c1] === 'rainbow' || board[r2][c2] === 'rainbow') {
             handleSpecialMove(r1, c1, r2, c2); 
         } else {
             let initialMatches = findMatches();
@@ -320,40 +307,67 @@ function swapCells(r1, c1, r2, c2) {
 }
  
 function handleSpecialMove(r1, c1, r2, c2) {
-    let specialType = null, sr = 0, sc = 0, targetType = null;
- 
-    if (board[r1][c1] === 'bomb' || board[r1][c1] === 'rainbow') {
-        specialType = board[r1][c1]; sr = r1; sc = c1; targetType = board[r2][c2];
-    } else {
-        specialType = board[r2][c2]; sr = r2; sc = c2; targetType = board[r1][c1];
-    }
- 
+    let t1 = board[r1][c1], t2 = board[r2][c2];
     let cellsDestroyed = [];
  
-    if (specialType === 'bomb') {
+    if ((t1 === 'bomb' && t2 === 'bomb') || (t1 === 'super_bomb' && t2 === 'bomb') || (t1 === 'bomb' && t2 === 'super_bomb') || (t1 === 'super_bomb' && t2 === 'super_bomb')) {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
-        board[sr][sc] = null;
-        for (let i = -1; i <= 1; i++) {
-            for (let j = -1; j <= 1; j++) {
-                let nr = sr + i, nc = sc + j;
-                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                    cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
-                    const cell = boardEl.children[nr * COLS + nc];
-                    cell.classList.add('disappear');
-                    setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-                }
-            }
-        }
-    } else if (specialType === 'rainbow') {
-        soundPop.currentTime = 0; soundPop.play().catch(e => {});
-        board[sr][sc] = null;
+        tg.showAlert("💥 МЕГА-ВЗРЫВ!");
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
-                if (board[r][c] === targetType) {
-                    cellsDestroyed.push({r: r, c: c, type: board[r][c]});
-                    const cell = boardEl.children[r * COLS + c];
-                    cell.classList.add('disappear');
-                    setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+                cellsDestroyed.push({r: r, c: c, type: board[r][c]});
+                const cell = boardEl.children[r * COLS + c];
+                cell.classList.add('disappear');
+                setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+            }
+        }
+    } 
+    else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
+        soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
+        tg.showAlert("🌈💥 АБСОЛЮТНАЯ ОЧИСТКА!");
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                cellsDestroyed.push({r: r, c: c, type: board[r][c]});
+                const cell = boardEl.children[r * COLS + c];
+                cell.classList.add('disappear');
+                setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+            }
+        }
+    }
+    else {
+        let specialType = null, sr = 0, sc = 0, targetType = null;
+        if (t1 === 'bomb' || t1 === 'super_bomb' || t1 === 'rainbow') {
+            specialType = t1; sr = r1; sc = c1; targetType = t2;
+        } else {
+            specialType = t2; sr = r2; sc = c2; targetType = t1;
+        }
+ 
+        if (specialType === 'bomb' || specialType === 'super_bomb') {
+            soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
+            board[sr][sc] = null;
+            let radius = specialType === 'super_bomb' ? 2 : 1;
+            for (let i = -radius; i <= radius; i++) {
+                for (let j = -radius; j <= radius; j++) {
+                    let nr = sr + i, nc = sc + j;
+                    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                        cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
+                        const cell = boardEl.children[nr * COLS + nc];
+                        cell.classList.add('disappear');
+                        setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+                    }
+                }
+            }
+        } else if (specialType === 'rainbow') {
+            soundPop.currentTime = 0; soundPop.play().catch(e => {});
+            board[sr][sc] = null;
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (board[r][c] === targetType) {
+                        cellsDestroyed.push({r: r, c: c, type: board[r][c]});
+                        const cell = boardEl.children[r * COLS + c];
+                        cell.classList.add('disappear');
+                        setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+                    }
                 }
             }
         }
@@ -361,11 +375,10 @@ function handleSpecialMove(r1, c1, r2, c2) {
  
     if (goalType === 'fruit') {
         cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; });
-        updateGoalUI();
-        checkGoalComplete();
+        updateGoalUI(); checkGoalComplete();
     }
  
-    score += 150;
+    score += cellsDestroyed.length * 10;
     updateScoreUI();
     setTimeout(() => { dropCells(true); }, 300);
 }
@@ -374,14 +387,14 @@ function findMatches() {
     let matched = new Set();
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS - 2; c++) {
-            if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
+            if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
                 matched.add(`${r},${c}`); matched.add(`${r},${c+1}`); matched.add(`${r},${c+2}`);
             }
         }
     }
     for (let c = 0; c < COLS; c++) {
         for (let r = 0; r < ROWS - 2; r++) {
-            if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
+            if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
                 matched.add(`${r},${c}`); matched.add(`${r+1},${c}`); matched.add(`${r+2},${c}`);
             }
         }
@@ -405,12 +418,12 @@ function processMatches(matched, isPlayerMove) {
     for (let r = 0; r < ROWS; r++) {
         let count = 1;
         for (let c = 1; c <= COLS; c++) {
-            if (c < COLS && board[r][c] !== null && board[r][c] === board[r][c-1] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow') count++;
+            if (c < COLS && board[r][c] !== null && board[r][c] === board[r][c-1] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb') count++;
             else {
                 if (count >= 3) {
                     let line = [];
                     for(let i=0; i<count; i++) line.push({r: r, c: c-1-i});
-                    lines.push({cells: line, type: board[r][c-1], count: count});
+                    lines.push({cells: line, type: board[r][c-1], count: count, dir: 'h'});
                 }
                 count = 1;
             }
@@ -419,12 +432,12 @@ function processMatches(matched, isPlayerMove) {
     for (let c = 0; c < COLS; c++) {
         let count = 1;
         for (let r = 1; r <= ROWS; r++) {
-            if (r < ROWS && board[r][c] !== null && board[r][c] === board[r-1][c] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow') count++;
+            if (r < ROWS && board[r][c] !== null && board[r][c] === board[r-1][c] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb') count++;
             else {
                 if (count >= 3) {
                     let line = [];
                     for(let i=0; i<count; i++) line.push({r: r-1-i, c: c});
-                    lines.push({cells: line, type: board[r-1][c], count: count});
+                    lines.push({cells: line, type: board[r-1][c], count: count, dir: 'v'});
                 }
                 count = 1;
             }
@@ -432,7 +445,20 @@ function processMatches(matched, isPlayerMove) {
     }
  
     let spawns = [];
+    for (let i = 0; i < lines.length; i++) {
+        for (let j = 0; j < lines.length; j++) {
+            if (i !== j && lines[i].type === lines[j].type) {
+                let intersection = lines[i].cells.find(c1 => lines[j].cells.some(c2 => c1.r === c2.r && c1.c === c2.c));
+                if (intersection) {
+                    spawns.push({r: intersection.r, c: intersection.c, type: 'super_bomb'});
+                    lines[i].processed = true; lines[j].processed = true;
+                }
+            }
+        }
+    }
+ 
     lines.forEach(line => {
+        if (line.processed) return;
         if (line.count === 4) {
             let mid = line.cells[1];
             spawns.push({r: mid.r, c: mid.c, type: 'bomb'});
@@ -458,8 +484,7 @@ function processMatches(matched, isPlayerMove) {
  
     if (goalType === 'fruit') {
         matched.forEach(pos => { const [r, c] = pos.split(',').map(Number); if (board[r][c] === goalFruitIndex) goalProgress++; });
-        updateGoalUI();
-        checkGoalComplete();
+        updateGoalUI(); checkGoalComplete();
     }
  
     let points = matched.size * 10; score += points; updateScoreUI();
