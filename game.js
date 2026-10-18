@@ -20,16 +20,19 @@ let isGameOver = false;
 let isAnimating = false; 
 let comboCount = 0;
  
-// Данные игрока
-let playerCoins = 0; 
+let playerCoins = 100; 
 let playerHammers = 0;
 let playerShuffles = 0;
 let currentLevel = 1;
  
 // Логика Целей (Уровней)
-let goalType = null; // 'fruit' или 'score'
+let goalType = null; 
 let goalTarget = 0;
 let goalProgress = 0;
+let goalFruitIndex = 0; 
+ 
+// Бустеры
+let isHammerMode = false;
  
 let touchStartX = 0; let touchStartY = 0;
 let touchStartRow = null; let touchStartCol = null;
@@ -48,10 +51,9 @@ function sendToBot(data) {
     tg.sendData(JSON.stringify(data));
 }
  
-// Загрузка данных (вызывается при старте)
+// Загрузка данных (просто отправляем запрос, не ждем ответа, чтобы игра не вылетала)
 function loadPlayerData() {
     sendToBot({ action: "get_data" });
-    // Обновляем UI бустеров (в реальном приложении данные придут от бота)
     document.getElementById('hammer-count').innerText = playerHammers;
     document.getElementById('shuffle-count').innerText = playerShuffles;
 }
@@ -62,6 +64,7 @@ function startGame(mode) {
     score = 0;
     isGameOver = false;
     isAnimating = false;
+    isHammerMode = false;
     comboCount = 0;
     menuScreen.style.display = 'none';
     gameOverScreen.style.display = 'none';
@@ -72,18 +75,19 @@ function startGame(mode) {
     if (mode === 'classic') {
         movesLeft = 30;
         goalEl.innerText = `Ходы: ${movesLeft}`;
-        // Генерируем цель для уровня
         generateGoal();
     } else if (mode === 'bonus') {
         movesLeft = 30;
         goalEl.innerText = `Ходы: ${movesLeft}`;
         goalTextEl.innerText = "Цель: Собери как можно больше!";
         goalProgressEl.innerText = "Без ограничений";
+        goalType = null;
     } else if (mode === 'survival' || mode === 'vs') {
         timeLeft = mode === 'vs' ? 45 : 60;
         goalEl.innerText = `⏳: ${timeLeft}с`;
         goalTextEl.innerText = "Цель: Продержись!";
         goalProgressEl.innerText = "";
+        goalType = null;
         startTimer();
     }
  
@@ -91,9 +95,7 @@ function startGame(mode) {
     createBoard();
 }
  
-// Генерация цели для классики
 function generateGoal() {
-    // Каждый 3-й уровень - цель по очкам, остальные - по фруктам
     if (currentLevel % 3 === 0) {
         goalType = 'score';
         goalTarget = 500 * currentLevel;
@@ -101,9 +103,9 @@ function generateGoal() {
         goalProgress = 0;
     } else {
         goalType = 'fruit';
-        const randomFruitIndex = Math.floor(Math.random() * TYPES);
-        goalTarget = 10 + (currentLevel * 5); // 15, 20, 25...
-        goalTextEl.innerText = `Цель: Собери ${goalTarget} <img src="${SPRITES[randomFruitIndex]}" style="width: 20px; vertical-align: middle;">`;
+        goalFruitIndex = Math.floor(Math.random() * TYPES);
+        goalTarget = 10 + (currentLevel * 5); 
+        goalTextEl.innerHTML = `Цель: Собери ${goalTarget} <img src="${SPRITES[goalFruitIndex]}" style="width: 20px; vertical-align: middle;">`;
         goalProgress = 0;
     }
     updateGoalUI();
@@ -112,7 +114,7 @@ function generateGoal() {
 function updateGoalUI() {
     if (goalType === 'score') {
         goalProgressEl.innerText = `${score} / ${goalTarget}`;
-    } else {
+    } else if (goalType === 'fruit') {
         goalProgressEl.innerText = `${goalProgress} / ${goalTarget}`;
     }
 }
@@ -123,10 +125,12 @@ function useBooster(type) {
  
     if (type === 'hammer') {
         if (playerHammers > 0) {
-            // Включаем режим молотка (следующий клик уничтожит фишку)
-            tg.showAlert("Выбери фишку, чтобы разбить её!");
-            // Здесь нужно добавить логику выбора фишки, пока просто заглушка
-            // playerHammers--;
+            isHammerMode = !isHammerMode; // Вкл/выкл режим молотка
+            if (isHammerMode) {
+                tg.showAlert("Режим молотка ВКЛ. Нажми на любую фишку, чтобы разбить её!");
+            } else {
+                tg.showAlert("Режим молотка ВЫКЛ.");
+            }
         } else {
             tg.showAlert("У тебя нет молотков! Купи их в магазине.");
         }
@@ -142,11 +146,11 @@ function useBooster(type) {
     }
 }
  
-// --- МАГАЗИН (Покупка бустеров) ---
+// --- МАГАЗИН ---
 function openShop() {
     tg.showPopup({
         title: "Магазин",
-        message: "Выбери, что купить:",
+        message: `Твои монеты: ${playerCoins}\n\nЧто купить?`,
         buttons: [
             {id: "buy_hammer", type: "default", text: "🔨 Молоток (50 монет)"},
             {id: "buy_shuffle", type: "default", text: "🔄 Перемешать (30 монет)"},
@@ -181,7 +185,6 @@ function endGame(reason) {
     isGameOver = true;
     if (gameInterval) clearInterval(gameInterval);
  
-    // Проверка победы (для классики)
     let isWin = false;
     if (currentMode === 'classic') {
         if (goalType === 'score' && score >= goalTarget) isWin = true;
@@ -191,7 +194,6 @@ function endGame(reason) {
     if (isWin) {
         document.getElementById('go-title').innerText = "🎉 Уровень пройден!";
         currentLevel++;
-        // Отправляем боту, что уровень пройден
         sendToBot({ action: "level_complete", level: currentLevel });
     } else {
         document.getElementById('go-title').innerText = reason;
@@ -208,7 +210,7 @@ function endGame(reason) {
  
 function updateScoreUI() { scoreEl.innerText = `⭐ Очки: ${score}`; }
  
-// --- ИГРОВАЯ ЛОГИКА (Свайпы и Матчи) ---
+// --- ИГРОВАЯ ЛОГИКА ---
 function createBoard() {
     boardEl.innerHTML = '';
     for (let r = 0; r < ROWS; r++) {
@@ -224,13 +226,54 @@ function createBoard() {
             }
             board[r][c] = type;
             updateCell(cell, type);
-            cell.addEventListener('touchstart', (e) => handleStart(r, c, e), {passive: true});
-            cell.addEventListener('touchend', (e) => handleEnd(r, c, e));
-            cell.addEventListener('mousedown', (e) => handleStart(r, c, e));
-            cell.addEventListener('mouseup', (e) => handleEnd(r, c, e));
+ 
+            // Обработка клика (для молотка) и свайпов
+            cell.addEventListener('touchstart', (e) => { 
+                if (isHammerMode) handleHammer(r, c);
+                else handleStart(r, c, e); 
+            }, {passive: true});
+            cell.addEventListener('touchend', (e) => { 
+                if (!isHammerMode) handleEnd(r, c, e); 
+            });
+            cell.addEventListener('mousedown', (e) => { 
+                if (isHammerMode) handleHammer(r, c);
+                else handleStart(r, c, e); 
+            });
+            cell.addEventListener('mouseup', (e) => { 
+                if (!isHammerMode) handleEnd(r, c, e); 
+            });
+ 
             boardEl.appendChild(cell);
         }
     }
+}
+ 
+function handleHammer(r, c) {
+    if (!isHammerMode) return;
+    isHammerMode = false;
+    isAnimating = true;
+    playerHammers--;
+    document.getElementById('hammer-count').innerText = playerHammers;
+    sendToBot({ action: "spend_booster", booster: "hammer" });
+ 
+    soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
+ 
+    // Ломаем 3х3 вокруг выбранной клетки
+    for (let i = -1; i <= 1; i++) {
+        for (let j = -1; j <= 1; j++) {
+            let nr = r + i, nc = c + j;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                const cell = boardEl.children[nr * COLS + nc];
+                cell.classList.add('disappear');
+                setTimeout(() => {
+                    board[nr][nc] = null;
+                    updateCell(cell, null);
+                    cell.classList.remove('disappear');
+                }, 200);
+            }
+        }
+    }
+    setTimeout(() => { dropCells(true); }, 250);
 }
  
 function updateCell(cell, type) {
@@ -324,13 +367,10 @@ function processMatches(matched, isPlayerMove) {
         }
     } else { comboCount = 0; }
  
-    // Подсчет целей
     if (currentMode === 'classic' && goalType === 'fruit') {
         matched.forEach(pos => {
             const [r, c] = pos.split(',').map(Number);
-            // Если тип совпадает с целевым, добавляем прогресс
-            // (Упрощенно: считаем любые совпадения)
-            goalProgress++; 
+            if (board[r][c] === goalFruitIndex) goalProgress++;
         });
         updateGoalUI();
     }
@@ -347,7 +387,7 @@ function processMatches(matched, isPlayerMove) {
     setTimeout(() => { dropCells(isPlayerMove); }, 250); 
 }
  
-function explodeBombs(wasPlayerMove) { /* Код бомб оставляем без изменений */ 
+function explodeBombs(wasPlayerMove) { 
     let exploded = false;
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
@@ -397,7 +437,6 @@ function checkMatchesAfterDrop(wasPlayerMove) {
     else {
         isAnimating = false;
         if (wasPlayerMove && (currentMode === 'classic' || currentMode === 'bonus') && movesLeft <= 0) { 
-            // Проверка победы перед концом
             let isWin = false;
             if (goalType === 'score' && score >= goalTarget) isWin = true;
             if (goalType === 'fruit' && goalProgress >= goalTarget) isWin = true;
@@ -410,5 +449,5 @@ function renderBoard() {
     for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { updateCell(boardEl.children[r * COLS + c], board[r][c]); } }
 }
  
-// Инициализация при загрузке
+// Запуск при открытии
 loadPlayerData();
