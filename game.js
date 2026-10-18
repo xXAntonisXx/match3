@@ -69,12 +69,9 @@ function startGame(mode) {
         movesLeft = 30;
         goalEl.innerText = `Ходы: ${movesLeft}`;
         generateGoal();
-    } else if (mode === 'bonus') {
-        movesLeft = 30;
-        goalEl.innerText = `Ходы: ${movesLeft}`;
-        goalTextEl.innerText = "Цель: Собери как можно больше!";
-        goalProgressEl.innerText = "Без ограничений";
-        goalType = null;
+    } else if (mode === 'endless') {
+        goalEl.innerText = `Ходы: ∞`;
+        generateGoal(); 
     } else if (mode === 'survival' || mode === 'vs') {
         timeLeft = mode === 'vs' ? 45 : 60;
         goalEl.innerText = `⏳: ${timeLeft}с`;
@@ -88,7 +85,7 @@ function startGame(mode) {
 }
  
 function generateGoal() {
-    if (currentLevel % 3 === 0) {
+    if (currentMode === 'classic' && currentLevel % 3 === 0) {
         goalType = 'score';
         goalTarget = 500 * currentLevel;
         goalTextEl.innerText = `Цель: Набери ${goalTarget} очков`;
@@ -96,7 +93,10 @@ function generateGoal() {
     } else {
         goalType = 'fruit';
         goalFruitIndex = Math.floor(Math.random() * TYPES);
-        goalTarget = 10 + (currentLevel * 5); 
+ 
+        let baseTarget = currentMode === 'endless' ? 15 : 10;
+        goalTarget = baseTarget + (currentLevel * 3); 
+ 
         goalTextEl.innerHTML = `Цель: Собери ${goalTarget} <img src="${SPRITES[goalFruitIndex]}" style="width: 20px; vertical-align: middle;">`;
         goalProgress = 0;
     }
@@ -109,6 +109,22 @@ function updateGoalUI() {
     } else if (goalType === 'fruit') {
         goalProgressEl.innerText = `${goalProgress} / ${goalTarget}`;
     }
+}
+ 
+function checkGoalComplete() {
+    if (currentMode === 'classic') {
+        if (goalType === 'score' && score >= goalTarget) return true;
+        if (goalType === 'fruit' && goalProgress >= goalTarget) return true;
+    } else if (currentMode === 'endless') {
+        if (goalType === 'fruit' && goalProgress >= goalTarget) {
+            currentLevel++; 
+            score += 500; 
+            tg.showAlert("🎉 Цель выполнена! Новая цель!");
+            generateGoal();
+            return false; 
+        }
+    }
+    return false;
 }
  
 function useBooster(type) {
@@ -168,16 +184,14 @@ function endGame(reason) {
     isGameOver = true;
     if (gameInterval) clearInterval(gameInterval);
  
-    let isWin = false;
     if (currentMode === 'classic') {
-        if (goalType === 'score' && score >= goalTarget) isWin = true;
-        if (goalType === 'fruit' && goalProgress >= goalTarget) isWin = true;
-    }
- 
-    if (isWin) {
-        document.getElementById('go-title').innerText = "🎉 Уровень пройден!";
-        currentLevel++;
-        sendToBot({ action: "level_complete", level: currentLevel });
+        if (checkGoalComplete()) {
+            document.getElementById('go-title').innerText = "🎉 Уровень пройден!";
+            currentLevel++;
+            sendToBot({ action: "level_complete", level: currentLevel });
+        } else {
+            document.getElementById('go-title').innerText = reason;
+        }
     } else {
         document.getElementById('go-title').innerText = reason;
     }
@@ -237,9 +251,10 @@ function handleHammer(r, c) {
         }
     }
  
-    if (currentMode === 'classic' && goalType === 'fruit') {
+    if (goalType === 'fruit') {
         cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; });
         updateGoalUI();
+        checkGoalComplete();
     }
  
     setTimeout(() => { dropCells(true); }, 250);
@@ -289,7 +304,7 @@ function swapCells(r1, c1, r2, c2) {
         } else {
             let initialMatches = findMatches();
             if (initialMatches.size > 0) {
-                if (currentMode === 'classic' || currentMode === 'bonus') {
+                if (currentMode === 'classic') {
                     movesLeft--; goalEl.innerText = `Ходы: ${movesLeft}`;
                     if (movesLeft <= 0) { processMatches(initialMatches, true); setTimeout(() => endGame("Ходы закончились!"), 1000); return; }
                 }
@@ -344,9 +359,10 @@ function handleSpecialMove(r1, c1, r2, c2) {
         }
     }
  
-    if (currentMode === 'classic' && goalType === 'fruit') {
+    if (goalType === 'fruit') {
         cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; });
         updateGoalUI();
+        checkGoalComplete();
     }
  
     score += 150;
@@ -440,9 +456,10 @@ function processMatches(matched, isPlayerMove) {
         updateCell(boardEl.children[s.r * COLS + s.c], s.type);
     });
  
-    if (currentMode === 'classic' && goalType === 'fruit') {
+    if (goalType === 'fruit') {
         matched.forEach(pos => { const [r, c] = pos.split(',').map(Number); if (board[r][c] === goalFruitIndex) goalProgress++; });
         updateGoalUI();
+        checkGoalComplete();
     }
  
     let points = matched.size * 10; score += points; updateScoreUI();
@@ -473,11 +490,8 @@ function checkMatchesAfterDrop(wasPlayerMove) {
     if (newMatches.size > 0) { processMatches(newMatches, false); } 
     else {
         isAnimating = false;
-        if (wasPlayerMove && (currentMode === 'classic' || currentMode === 'bonus') && movesLeft <= 0) { 
-            let isWin = false;
-            if (goalType === 'score' && score >= goalTarget) isWin = true;
-            if (goalType === 'fruit' && goalProgress >= goalTarget) isWin = true;
-            if (!isWin) endGame("Ходы закончились!"); 
+        if (wasPlayerMove && currentMode === 'classic' && movesLeft <= 0) { 
+            if (!checkGoalComplete()) endGame("Ходы закончились!"); 
         }
     }
 }
