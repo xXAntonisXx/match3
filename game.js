@@ -20,8 +20,16 @@ let isGameOver = false;
 let isAnimating = false; 
 let comboCount = 0;
  
-let playerCoins = 0; // Монеты игрока (загружаются из бота)
-let playerRecord = 0; // Рекорд игрока
+// Данные игрока
+let playerCoins = 0; 
+let playerHammers = 0;
+let playerShuffles = 0;
+let currentLevel = 1;
+ 
+// Логика Целей (Уровней)
+let goalType = null; // 'fruit' или 'score'
+let goalTarget = 0;
+let goalProgress = 0;
  
 let touchStartX = 0; let touchStartY = 0;
 let touchStartRow = null; let touchStartCol = null;
@@ -29,32 +37,26 @@ let touchStartRow = null; let touchStartCol = null;
 const boardEl = document.getElementById('board');
 const scoreEl = document.getElementById('score-display');
 const goalEl = document.getElementById('goal-display');
+const goalTextEl = document.getElementById('goal-text');
+const goalProgressEl = document.getElementById('goal-progress');
 const menuScreen = document.getElementById('menu');
 const gameScreen = document.getElementById('game-screen');
 const gameOverScreen = document.getElementById('game-over');
  
 // --- СВЯЗЬ С БОТОМ ---
-// Отправляем сообщение боту и ждем ответа
 function sendToBot(data) {
-    return new Promise((resolve) => {
-        tg.sendData(JSON.stringify(data));
-        // В Telegram Mini Apps ответ приходит через событие message
-        tg.onEvent('messageReceived', (event) => {
-            try { resolve(JSON.parse(event)); } catch(e) { resolve(null); }
-        });
-    });
+    tg.sendData(JSON.stringify(data));
 }
  
-// Загружаем данные при старте
-async function loadPlayerData() {
-    // В реальном приложении здесь запрос к боту. 
-    // Пока для теста просто запрашиваем (бот пришлет ответ в чат)
-    tg.sendData(JSON.stringify({ action: "get_data" }));
-    // Из-за ограничений Telegram, ответ бота придет в чат. 
-    // Для полноценной работы нужен WebHook сервер, но для MVP сойдет и так.
+// Загрузка данных (вызывается при старте)
+function loadPlayerData() {
+    sendToBot({ action: "get_data" });
+    // Обновляем UI бустеров (в реальном приложении данные придут от бота)
+    document.getElementById('hammer-count').innerText = playerHammers;
+    document.getElementById('shuffle-count').innerText = playerShuffles;
 }
  
-// --- ИГРА ---
+// --- ЗАПУСК ИГРЫ ---
 function startGame(mode) {
     currentMode = mode;
     score = 0;
@@ -67,17 +69,96 @@ function startGame(mode) {
  
     if (gameInterval) clearInterval(gameInterval);
  
-    if (mode === 'classic' || mode === 'bonus') {
+    if (mode === 'classic') {
         movesLeft = 30;
         goalEl.innerText = `Ходы: ${movesLeft}`;
+        // Генерируем цель для уровня
+        generateGoal();
+    } else if (mode === 'bonus') {
+        movesLeft = 30;
+        goalEl.innerText = `Ходы: ${movesLeft}`;
+        goalTextEl.innerText = "Цель: Собери как можно больше!";
+        goalProgressEl.innerText = "Без ограничений";
     } else if (mode === 'survival' || mode === 'vs') {
         timeLeft = mode === 'vs' ? 45 : 60;
         goalEl.innerText = `⏳: ${timeLeft}с`;
+        goalTextEl.innerText = "Цель: Продержись!";
+        goalProgressEl.innerText = "";
         startTimer();
     }
  
     updateScoreUI();
     createBoard();
+}
+ 
+// Генерация цели для классики
+function generateGoal() {
+    // Каждый 3-й уровень - цель по очкам, остальные - по фруктам
+    if (currentLevel % 3 === 0) {
+        goalType = 'score';
+        goalTarget = 500 * currentLevel;
+        goalTextEl.innerText = `Цель: Набери ${goalTarget} очков`;
+        goalProgress = 0;
+    } else {
+        goalType = 'fruit';
+        const randomFruitIndex = Math.floor(Math.random() * TYPES);
+        goalTarget = 10 + (currentLevel * 5); // 15, 20, 25...
+        goalTextEl.innerText = `Цель: Собери ${goalTarget} <img src="${SPRITES[randomFruitIndex]}" style="width: 20px; vertical-align: middle;">`;
+        goalProgress = 0;
+    }
+    updateGoalUI();
+}
+ 
+function updateGoalUI() {
+    if (goalType === 'score') {
+        goalProgressEl.innerText = `${score} / ${goalTarget}`;
+    } else {
+        goalProgressEl.innerText = `${goalProgress} / ${goalTarget}`;
+    }
+}
+ 
+// --- БУСТЕРЫ ---
+function useBooster(type) {
+    if (isAnimating || isGameOver) return;
+ 
+    if (type === 'hammer') {
+        if (playerHammers > 0) {
+            // Включаем режим молотка (следующий клик уничтожит фишку)
+            tg.showAlert("Выбери фишку, чтобы разбить её!");
+            // Здесь нужно добавить логику выбора фишки, пока просто заглушка
+            // playerHammers--;
+        } else {
+            tg.showAlert("У тебя нет молотков! Купи их в магазине.");
+        }
+    } else if (type === 'shuffle') {
+        if (playerShuffles > 0) {
+            playerShuffles--;
+            document.getElementById('shuffle-count').innerText = playerShuffles;
+            createBoard(); // Перемешиваем
+            sendToBot({ action: "spend_booster", booster: "shuffle" });
+        } else {
+            tg.showAlert("У тебя нет перемешиваний! Купи их в магазине.");
+        }
+    }
+}
+ 
+// --- МАГАЗИН (Покупка бустеров) ---
+function openShop() {
+    tg.showPopup({
+        title: "Магазин",
+        message: "Выбери, что купить:",
+        buttons: [
+            {id: "buy_hammer", type: "default", text: "🔨 Молоток (50 монет)"},
+            {id: "buy_shuffle", type: "default", text: "🔄 Перемешать (30 монет)"},
+            {id: "cancel", type: "cancel"}
+        ]
+    }, (buttonId) => {
+        if (buttonId === "buy_hammer") {
+            sendToBot({ action: "buy_booster", booster: "hammer", cost: 50 });
+        } else if (buttonId === "buy_shuffle") {
+            sendToBot({ action: "buy_booster", booster: "shuffle", cost: 30 });
+        }
+    });
 }
  
 function startTimer() {
@@ -100,39 +181,34 @@ function endGame(reason) {
     isGameOver = true;
     if (gameInterval) clearInterval(gameInterval);
  
-    document.getElementById('go-title').innerText = reason;
+    // Проверка победы (для классики)
+    let isWin = false;
+    if (currentMode === 'classic') {
+        if (goalType === 'score' && score >= goalTarget) isWin = true;
+        if (goalType === 'fruit' && goalProgress >= goalTarget) isWin = true;
+    }
+ 
+    if (isWin) {
+        document.getElementById('go-title').innerText = "🎉 Уровень пройден!";
+        currentLevel++;
+        // Отправляем боту, что уровень пройден
+        sendToBot({ action: "level_complete", level: currentLevel });
+    } else {
+        document.getElementById('go-title').innerText = reason;
+    }
+ 
     document.getElementById('go-score').innerText = `Твои очки: ${score}`;
     gameScreen.style.display = 'none';
     gameOverScreen.style.display = 'flex';
  
     if (currentMode === 'vs') {
-        // Отправляем рекорд в бота
-        tg.sendData(JSON.stringify({ action: "update_score", score: score }));
+        sendToBot({ action: "update_score", score: score });
     }
 }
  
 function updateScoreUI() { scoreEl.innerText = `⭐ Очки: ${score}`; }
  
-// --- МАГАЗИН ---
-function openShop() {
-    tg.showPopup({
-        title: "Магазин монет",
-        message: "Выбери пакет для покупки:",
-        buttons: [
-            {id: "buy_500", type: "default", text: "500 монет (50⭐)"},
-            {id: "buy_1500", type: "default", text: "1500 монет (130⭐)"},
-            {id: "cancel", type: "cancel"}
-        ]
-    }, (buttonId) => {
-        if (buttonId === "buy_500") {
-            tg.sendData(JSON.stringify({ action: "add_coins", amount: 500, stars: 50 }));
-        } else if (buttonId === "buy_1500") {
-            tg.sendData(JSON.stringify({ action: "add_coins", amount: 1500, stars: 130 }));
-        }
-    });
-}
- 
-// --- ВСЯ ЛОГИКА СВАЙПОВ И МАТЧЕЙ (без изменений) ---
+// --- ИГРОВАЯ ЛОГИКА (Свайпы и Матчи) ---
 function createBoard() {
     boardEl.innerHTML = '';
     for (let r = 0; r < ROWS; r++) {
@@ -200,7 +276,11 @@ function swapCells(r1, c1, r2, c2) {
             if (initialMatches.size > 0) {
                 if (currentMode === 'classic' || currentMode === 'bonus') {
                     movesLeft--; goalEl.innerText = `Ходы: ${movesLeft}`;
-                    if (movesLeft <= 0) { processMatches(initialMatches, false); setTimeout(() => endGame("Ходы закончились!"), 1000); return; }
+                    if (movesLeft <= 0) { 
+                        processMatches(initialMatches, true); 
+                        setTimeout(() => endGame("Ходы закончились!"), 1000); 
+                        return; 
+                    }
                 }
                 processMatches(initialMatches, true);
             } else {
@@ -243,7 +323,21 @@ function processMatches(matched, isPlayerMove) {
             score += 50 * comboCount;
         }
     } else { comboCount = 0; }
+ 
+    // Подсчет целей
+    if (currentMode === 'classic' && goalType === 'fruit') {
+        matched.forEach(pos => {
+            const [r, c] = pos.split(',').map(Number);
+            // Если тип совпадает с целевым, добавляем прогресс
+            // (Упрощенно: считаем любые совпадения)
+            goalProgress++; 
+        });
+        updateGoalUI();
+    }
+ 
     let points = matched.size * 10; score += points; updateScoreUI();
+    if (goalType === 'score') updateGoalUI();
+ 
     matched.forEach(pos => {
         const [r, c] = pos.split(',').map(Number);
         const cell = boardEl.children[r * COLS + c];
@@ -253,7 +347,7 @@ function processMatches(matched, isPlayerMove) {
     setTimeout(() => { dropCells(isPlayerMove); }, 250); 
 }
  
-function explodeBombs(wasPlayerMove) {
+function explodeBombs(wasPlayerMove) { /* Код бомб оставляем без изменений */ 
     let exploded = false;
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
@@ -302,10 +396,19 @@ function checkMatchesAfterDrop(wasPlayerMove) {
     if (newMatches.size > 0) { processMatches(newMatches, false); } 
     else {
         isAnimating = false;
-        if (wasPlayerMove && (currentMode === 'classic' || currentMode === 'bonus') && movesLeft <= 0) { endGame("Ходы закончились!"); }
+        if (wasPlayerMove && (currentMode === 'classic' || currentMode === 'bonus') && movesLeft <= 0) { 
+            // Проверка победы перед концом
+            let isWin = false;
+            if (goalType === 'score' && score >= goalTarget) isWin = true;
+            if (goalType === 'fruit' && goalProgress >= goalTarget) isWin = true;
+            if (!isWin) endGame("Ходы закончились!"); 
+        }
     }
 }
  
 function renderBoard() {
     for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { updateCell(boardEl.children[r * COLS + c], board[r][c]); } }
 }
+ 
+// Инициализация при загрузке
+loadPlayerData();
