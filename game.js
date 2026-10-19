@@ -55,25 +55,9 @@ function loadPlayerData() {
     sendToBot({ action: "get_data" });
 }
  
-// --- ЛОКАЛЬНЫЙ ТОП ИГРОКОВ ---
+// ПОДСКАЗКА ПРО ТОП
 function showTop() {
-    let records = JSON.parse(localStorage.getItem('match3_records') || "[]");
- 
-    if (records.length === 0) {
-        tg.showAlert("🏆 Топ пока пуст. Сыграй в режим 'Соревнование', чтобы установить рекорд!");
-        return;
-    }
- 
-    // Сортируем по убыванию
-    records.sort((a, b) => b.score - a.score);
- 
-    let text = "";
-    records.slice(0, 10).forEach((r, i) => {
-        let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1) + ".";
-        text += `${medal} ${r.name}: ${r.score} очков\n`;
-    });
- 
-    tg.showAlert("🏆 ТОП ИГРОКОВ:\n\n" + text);
+    tg.showAlert("Чтобы увидеть рейтинг всех игроков, нажми кнопку '🏆 Топ игроков' в самом боте или напиши ему команду /top!");
 }
  
 function startGame(mode) {
@@ -221,16 +205,7 @@ function endGame(reason) {
     }
  
     gameScreen.style.display = 'none'; gameOverScreen.style.display = 'flex';
- 
-    if (currentMode === 'vs') {
-        sendToBot({ action: "update_score", score: score });
- 
-        // СОХРАНЯЕМ РЕКОРД В ПАМЯТЬ ТЕЛЕФОНА
-        let playerName = tg.initDataUnsafe?.user?.first_name || "Игрок";
-        let records = JSON.parse(localStorage.getItem('match3_records') || "[]");
-        records.push({ name: playerName, score: score });
-        localStorage.setItem('match3_records', JSON.stringify(records));
-    }
+    if (currentMode === 'vs') sendToBot({ action: "update_score", score: score });
 }
  
 function updateScoreUI() { scoreEl.innerText = `⭐ Очки: ${score}`; }
