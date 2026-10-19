@@ -53,7 +53,7 @@ document.getElementById('app').innerHTML = `
     <h2 style="color: #f39c12;">Магазин</h2>
     <p>Твои монеты: <span id="shop-coins">100</span></p>
     <div class="shop-item" onclick="buyItem('hammer', 50)">
-        <span>🔨 Молоток (разбить 5х5)</span>
+        <span>🔨 Молоток (разбить 3х3)</span>
         <span style="color: #4ecca3; font-weight: bold;">50 🪙</span>
     </div>
     <div class="shop-item" onclick="buyItem('shuffle', 30)">
@@ -245,9 +245,9 @@ function handleHammer(r, c) {
     if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
     let cellsDestroyed = [];
     
-    // Молоток бьет 5х5 (идеальный центр)
-    for (let i = -2; i <= 2; i++) {
-        for (let j = -2; j <= 2; j++) {
+    // Молоток снова бьет 3х3 (радиус 1)
+    for (let i = -1; i <= 1; i++) {
+        for (let j = -1; j <= 1; j++) {
             let nr = r + i, nc = c + j;
             if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
                 cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
@@ -298,7 +298,11 @@ function swapCells(r1, c1, r2, c2) {
     updateCell(document.getElementById('board').children[r1 * COLS + c1], board[r1][c1]);
     updateCell(document.getElementById('board').children[r2 * COLS + c2], board[r2][c2]);
     setTimeout(() => {
-        if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb' || board[r1][c1] === 'rainbow' || board[r2][c2] === 'rainbow' || board[r1][c1].includes('rocket') || board[r2][c2].includes('rocket')) {
+        // Проверка на спец-фишки с учетом типа данных
+        let isSpecial1 = typeof board[r1][c1] === 'string' && (board[r1][c1].includes('rocket') || board[r1][c1] === 'bomb' || board[r1][c1] === 'rainbow');
+        let isSpecial2 = typeof board[r2][c2] === 'string' && (board[r2][c2].includes('rocket') || board[r2][c2] === 'bomb' || board[r2][c2] === 'rainbow');
+
+        if (isSpecial1 || isSpecial2) {
             handleSpecialMove(r1, c1, r2, c2); 
         } else {
             let initialMatches = findMatches();
@@ -323,7 +327,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
     let cellsDestroyed = [];
     
     // Ракета + Ракета = Крест
-    if (t1.includes('rocket') && t2.includes('rocket')) {
+    if (typeof t1 === 'string' && t1.includes('rocket') && typeof t2 === 'string' && t2.includes('rocket')) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🚀 КРЕСТ!");
         let sr = r1, sc = c1;
@@ -375,10 +379,10 @@ function handleSpecialMove(r1, c1, r2, c2) {
     }
     else {
         let specialType = null, sr = 0, sc = 0, targetType = null;
-        if (t1.includes('rocket') || t1 === 'bomb' || t1 === 'rainbow') { specialType = t1; sr = r1; sc = c1; targetType = t2; } 
+        if (typeof t1 === 'string' && (t1.includes('rocket') || t1 === 'bomb' || t1 === 'rainbow')) { specialType = t1; sr = r1; sc = c1; targetType = t2; } 
         else { specialType = t2; sr = r2; sc = c2; targetType = t1; }
         
-        if (specialType.includes('rocket')) {
+        if (typeof specialType === 'string' && specialType.includes('rocket')) {
             if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
             board[sr][sc] = null;
             if (specialType === 'rocket_h') {
@@ -446,12 +450,12 @@ function explodeBombs(wasPlayerMove) {
 function findMatches() {
     let matched = new Set();
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS - 2; c++) {
-        if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && !board[r][c].includes('rocket') && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
+        if (board[r][c] !== null && typeof board[r][c] === 'number' && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
             matched.add(`${r},${c}`); matched.add(`${r},${c+1}`); matched.add(`${r},${c+2}`);
         }
     }
     for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS - 2; r++) {
-        if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && !board[r][c].includes('rocket') && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
+        if (board[r][c] !== null && typeof board[r][c] === 'number' && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
             matched.add(`${r},${c}`); matched.add(`${r+1},${c}`); matched.add(`${r+2},${c}`);
         }
     }
@@ -474,14 +478,14 @@ function processMatches(matched, isPlayerMove) {
     for (let r = 0; r < ROWS; r++) {
         let count = 1;
         for (let c = 1; c <= COLS; c++) {
-            if (c < COLS && board[r][c] !== null && board[r][c] === board[r][c-1] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && !board[r][c].includes('rocket')) count++;
+            if (c < COLS && board[r][c] !== null && typeof board[r][c] === 'number' && board[r][c] === board[r][c-1]) count++;
             else { if (count >= 3) { let line = []; for(let i=0; i<count; i++) line.push({r, c: c-1-i}); lines.push({cells: line, type: board[r][c-1], count, dir: 'h'}); } count = 1; }
         }
     }
     for (let c = 0; c < COLS; c++) {
         let count = 1;
         for (let r = 1; r <= ROWS; r++) {
-            if (r < ROWS && board[r][c] !== null && board[r][c] === board[r-1][c] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && !board[r][c].includes('rocket')) count++;
+            if (r < ROWS && board[r][c] !== null && typeof board[r][c] === 'number' && board[r][c] === board[r-1][c]) count++;
             else { if (count >= 3) { let line = []; for(let i=0; i<count; i++) line.push({r: r-1-i, c}); lines.push({cells: line, type: board[r-1][c], count, dir: 'v'}); } count = 1; }
         }
     }
