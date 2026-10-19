@@ -421,56 +421,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
     score += cellsDestroyed.length * 10; updateScoreUI(); 
 }
 
-function explodeBombs(wasPlayerMove) { 
-    let queue = [];
-    let unique = new Set();
 
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            if (board[r][c] === 'bomb') { 
-                queue.push({r, c, type: board[r][c]}); 
-            }
-        }
-    }
-
-    if (queue.length > 0) {
-        if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
-        
-        while (queue.length > 0) {
-            let b = queue.shift();
-            for (let i = -1; i <= 1; i++) {
-                for (let j = -1; j <= 1; j++) {
-                    let nr = b.r + i, nc = b.c + j;
-                    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                        let key = `${nr},${nc}`;
-                        if (!unique.has(key)) {
-                            unique.add(key);
-                            if (board[nr][nc] === 'bomb') {
-                                queue.push({r: nr, c: nc, type: 'bomb'});
-                            }
-                            board[nr][nc] = null;
-                            const cell = document.getElementById('board').children[nr * COLS + nc];
-                            cell.classList.add('disappear'); 
-                            setTimeout(() => { cell.classList.remove('disappear'); }, 200);
-                        }
-                    }
-                }
-            }
-        }
-        
-        for (let r = 0; r < ROWS; r++) {
-            for (let c = 0; c < COLS; c++) {
-                updateCell(document.getElementById('board').children[r * COLS + c], board[r][c]);
-            }
-        }
-
-        score += 100; 
-        updateScoreUI(); 
-        setTimeout(() => { dropCells(wasPlayerMove); }, 250); 
-    } else { 
-        checkMatchesAfterDrop(wasPlayerMove); 
-    }
-}
 
 function findMatches() {
     let matched = new Set();
