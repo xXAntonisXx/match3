@@ -1,6 +1,53 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
+// --- ВСТРАИВАЕМ HTML И CSS ПРЯМО В JS ---
+document.getElementById('app').innerHTML = `
+<style>
+    body { margin: 0; background: #1a1a2e; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; user-select: none; }
+    #menu { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 20px; box-sizing: border-box; }
+    h1 { font-size: 32px; margin-bottom: 10px; color: #4ecca3; text-align: center; }
+    p { color: #aaa; margin-bottom: 30px; }
+    .menu-btn { background: rgba(255,255,255,0.1); color: white; border: 2px solid rgba(255,255,255,0.2); padding: 15px 30px; margin: 10px; border-radius: 15px; font-size: 18px; font-weight: bold; width: 80%; max-width: 300px; cursor: pointer; display: flex; justify-content: space-between; }
+    #game-screen { display: none; flex-direction: column; align-items: center; width: 100%; height: 100%; }
+    #level-goal { margin-top: 10px; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; text-align: center; width: 90%; max-width: 400px; box-sizing: border-box; }
+    .header { display: flex; justify-content: space-between; width: 90%; max-width: 400px; margin-top: 10px; font-size: 18px; font-weight: bold; background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 12px; box-sizing: border-box; }
+    .board { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; width: 90vw; max-width: 400px; aspect-ratio: 1/1; margin-top: 15px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 15px; }
+    .cell { display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer; }
+    .cell img { width: 80%; height: 80%; object-fit: contain; pointer-events: none; }
+    .boosters { display: flex; justify-content: space-between; width: 90%; max-width: 400px; margin-top: 15px; gap: 10px; }
+    button.action { background: rgba(255,255,255,0.1); color: white; border: 1px solid #4ecca3; padding: 10px 20px; border-radius: 10px; font-size: 16px; cursor: pointer; }
+    .btn-hammer { flex: 1; background: #9b59b6; border: none; }
+    .btn-shuffle { flex: 1; background: #3498db; border: none; }
+    .btn-menu { width: 90%; max-width: 400px; margin-top: 10px; background: #e94560; border: none; padding: 12px; font-weight: bold; }
+    .btn-shop { width: 90%; max-width: 400px; margin-top: 10px; background: #f39c12; border: none; color: #1a1a2e; padding: 12px; font-weight: bold; }
+    #game-over { display: none; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10; }
+    #combo-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; font-weight: bold; color: #ffcc00; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 100; }
+    #combo-text.show { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+</style>
+<div id="menu">
+    <h1>🍉 Match 3 Pro</h1>
+    <p>Выбери режим игры:</p>
+    <button class="menu-btn" onclick="startGame('classic')"><span>🎯 Классика</span> <span>Уровни</span></button>
+    <button class="menu-btn" onclick="startGame('endless')"><span>♾️ Бесконечный</span> <span>Цели</span></button>
+    <button class="menu-btn" onclick="startGame('survival')"><span>⏳ Выживание</span> <span>60 сек</span></button>
+    <button class="menu-btn" onclick="startGame('vs')"><span>⚔️ Соревнование</span> <span>На время</span></button>
+</div>
+<div id="game-screen">
+    <div id="level-goal"><div id="goal-text">Цель</div><div id="goal-progress">0 / 15</div></div>
+    <div class="header"><span id="score-display">⭐ Очки: 0</span><span id="goal-display">Ходы: 30</span></div>
+    <div class="board" id="board"></div>
+    <div class="boosters">
+        <button class="action btn-hammer" onclick="useBooster('hammer')">🔨 Молоток (<span id="hammer-count">0</span>)</button>
+        <button class="action btn-shuffle" onclick="useBooster('shuffle')">🔄 Микс (<span id="shuffle-count">0</span>)</button>
+    </div>
+    <button class="action btn-shop" onclick="openShop()">💎 Магазин</button>
+    <button class="action btn-menu" onclick="exitToMenu()">⬅️ В меню</button>
+</div>
+<div id="combo-text"></div>
+<div id="game-over"><h1 id="go-title">Игра окончена!</h1><p id="go-score" style="font-size: 24px; color: #4ecca3;">Очки: 0</p><button class="menu-btn" style="justify-content: center;" onclick="exitToMenu()">В меню</button></div>
+`;
+
 const ROWS = 8;
 const COLS = 8;
 const TYPES = 6; 
@@ -9,16 +56,11 @@ const BOMB_SPRITE = 'bomb.png';
 const SUPER_BOMB_SPRITE = 'super_bomb.png'; 
 const RAINBOW_SPRITE = 'rainbow.png'; 
 
-// Загрузка звуков с защитой от вылетов
 let soundPop, soundBoom;
 try {
     soundPop = new Audio('pop.mp3');
     soundBoom = new Audio('boom.mp3');
-    soundPop.volume = 0.5;
-    soundBoom.volume = 0.5;
-} catch (e) {
-    console.log("Звуки не поддерживаются на этом устройстве");
-}
+} catch (e) {}
 
 let board = [];
 let score = 0;
@@ -29,108 +71,62 @@ let gameInterval = null;
 let isGameOver = false;
 let isAnimating = false; 
 let comboCount = 0;
-
-let playerCoins = 100; 
-let playerHammers = 0;
-let playerShuffles = 0;
-let currentLevel = 1;
-
-let goalType = null; 
-let goalTarget = 0;
-let goalProgress = 0;
-let goalFruitIndex = 0; 
-let isHammerMode = false;
-
-let touchStartX = 0; let touchStartY = 0;
-let touchStartRow = null; let touchStartCol = null;
-
-const boardEl = document.getElementById('board');
-const scoreEl = document.getElementById('score-display');
-const goalEl = document.getElementById('goal-display');
-const goalTextEl = document.getElementById('goal-text');
-const goalProgressEl = document.getElementById('goal-progress');
-const menuScreen = document.getElementById('menu');
-const gameScreen = document.getElementById('game-screen');
-const gameOverScreen = document.getElementById('game-over');
+let playerCoins = 100, playerHammers = 0, playerShuffles = 0, currentLevel = 1;
+let goalType = null, goalTarget = 0, goalProgress = 0, goalFruitIndex = 0, isHammerMode = false;
+let touchStartX = 0, touchStartY = 0, touchStartRow = null, touchStartCol = null;
 
 function sendToBot(data) { tg.sendData(JSON.stringify(data)); }
-
 function loadPlayerData() {
     let savedCoins = localStorage.getItem('match3_coins');
     if (savedCoins !== null) playerCoins = parseInt(savedCoins);
     document.getElementById('hammer-count').innerText = playerHammers;
     document.getElementById('shuffle-count').innerText = playerShuffles;
-    sendToBot({ action: "get_data" });
 }
 
 function startGame(mode) {
-    currentMode = mode;
-    score = 0;
-    isGameOver = false;
-    isAnimating = false;
-    isHammerMode = false;
-    comboCount = 0;
-    menuScreen.style.display = 'none';
-    gameOverScreen.style.display = 'none';
-    gameScreen.style.display = 'flex';
-    
+    currentMode = mode; score = 0; isGameOver = false; isAnimating = false; isHammerMode = false; comboCount = 0;
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('game-screen').style.display = 'flex';
     if (gameInterval) clearInterval(gameInterval);
-
-    if (mode === 'classic') {
-        movesLeft = 30;
-        goalEl.innerText = `Ходы: ${movesLeft}`;
+    if (mode === 'classic' || mode === 'endless') {
+        movesLeft = mode === 'classic' ? 30 : 999;
+        document.getElementById('goal-display').innerText = mode === 'classic' ? `Ходы: ${movesLeft}` : `Ходы: ∞`;
         generateGoal();
-    } else if (mode === 'endless') {
-        goalEl.innerText = `Ходы: ∞`;
-        generateGoal(); 
-    } else if (mode === 'survival' || mode === 'vs') {
+    } else {
         timeLeft = mode === 'vs' ? 45 : 60;
-        goalEl.innerText = `⏳: ${timeLeft}с`;
-        goalTextEl.innerText = "Цель: Продержись!";
-        goalProgressEl.innerText = "";
-        goalType = null;
-        startTimer();
+        document.getElementById('goal-display').innerText = `⏳: ${timeLeft}с`;
+        document.getElementById('goal-text').innerText = "Цель: Продержись!";
+        document.getElementById('goal-progress').innerText = "";
+        goalType = null; startTimer();
     }
-    updateScoreUI();
-    createBoard();
+    updateScoreUI(); createBoard();
 }
 
 function generateGoal() {
     if (currentMode === 'classic' && currentLevel % 3 === 0) {
-        goalType = 'score';
-        goalTarget = 500 * currentLevel;
-        goalTextEl.innerText = `Цель: Набери ${goalTarget} очков`;
-        goalProgress = 0;
+        goalType = 'score'; goalTarget = 500 * currentLevel;
+        document.getElementById('goal-text').innerText = `Цель: Набери ${goalTarget} очков`;
     } else {
-        goalType = 'fruit';
-        goalFruitIndex = Math.floor(Math.random() * TYPES);
-        let baseTarget = currentMode === 'endless' ? 15 : 10;
-        goalTarget = baseTarget + (currentLevel * 3); 
-        goalTextEl.innerHTML = `Цель: Собери ${goalTarget} <img src="${SPRITES[goalFruitIndex]}" style="width: 20px; vertical-align: middle;">`;
-        goalProgress = 0;
+        goalType = 'fruit'; goalFruitIndex = Math.floor(Math.random() * TYPES);
+        goalTarget = (currentMode === 'endless' ? 15 : 10) + (currentLevel * 3); 
+        document.getElementById('goal-text').innerHTML = `Цель: Собери ${goalTarget} <img src="${SPRITES[goalFruitIndex]}" style="width: 20px; vertical-align: middle;">`;
     }
-    updateGoalUI();
+    goalProgress = 0; updateGoalUI();
 }
 
 function updateGoalUI() {
-    if (goalType === 'score') goalProgressEl.innerText = `${score} / ${goalTarget}`;
-    else if (goalType === 'fruit') goalProgressEl.innerText = `${goalProgress} / ${goalTarget}`;
+    if (goalType === 'score') document.getElementById('goal-progress').innerText = `${score} / ${goalTarget}`;
+    else if (goalType === 'fruit') document.getElementById('goal-progress').innerText = `${goalProgress} / ${goalTarget}`;
 }
 
 function checkGoalComplete() {
-    if (currentMode === 'classic') {
-        if ((goalType === 'score' && score >= goalTarget) || (goalType === 'fruit' && goalProgress >= goalTarget)) {
-            endGame("🎉 Уровень пройден!");
-            return true;
-        }
-    } else if (currentMode === 'endless') {
-        if (goalType === 'fruit' && goalProgress >= goalTarget) {
-            currentLevel++; score += 500; 
-            playerCoins += 30; localStorage.setItem('match3_coins', playerCoins);
-            sendToBot({ action: "endless_goal", reward: 30 });
-            tg.showAlert("🎉 Цель выполнена! Получено 30 монет! Новая цель!");
-            generateGoal(); return false; 
-        }
+    if (currentMode === 'classic' && ((goalType === 'score' && score >= goalTarget) || (goalType === 'fruit' && goalProgress >= goalTarget))) {
+        endGame("🎉 Уровень пройден!"); return true;
+    } else if (currentMode === 'endless' && goalType === 'fruit' && goalProgress >= goalTarget) {
+        currentLevel++; score += 500; playerCoins += 30; localStorage.setItem('match3_coins', playerCoins);
+        sendToBot({ action: "endless_goal", reward: 30 });
+        tg.showAlert("🎉 Цель выполнена! +30 монет!"); generateGoal(); return false; 
     }
     return false;
 }
@@ -138,98 +134,71 @@ function checkGoalComplete() {
 function useBooster(type) {
     if (isAnimating || isGameOver) return;
     if (type === 'hammer') {
-        if (playerHammers > 0) {
-            isHammerMode = !isHammerMode; 
-            if (isHammerMode) tg.showAlert("Режим молотка ВКЛ. Нажми на фишку!");
-            else tg.showAlert("Режим молотка ВЫКЛ.");
-        } else tg.showAlert("У тебя нет молотков! Купи их в магазине.");
+        if (playerHammers > 0) { isHammerMode = !isHammerMode; tg.showAlert(isHammerMode ? "Молоток ВКЛ" : "Молоток ВЫКЛ"); }
+        else tg.showAlert("Нет молотков!");
     } else if (type === 'shuffle') {
-        if (playerShuffles > 0) {
-            playerShuffles--; document.getElementById('shuffle-count').innerText = playerShuffles;
-            createBoard(); sendToBot({ action: "spend_booster", booster: "shuffle" });
-        } else tg.showAlert("У тебя нет перемешиваний! Купи их в магазине.");
+        if (playerShuffles > 0) { playerShuffles--; document.getElementById('shuffle-count').innerText = playerShuffles; createBoard(); sendToBot({ action: "spend_booster", booster: "shuffle" }); }
+        else tg.showAlert("Нет перемешиваний!");
     }
 }
 
 function openShop() {
     tg.showPopup({
-        title: "Магазин",
-        message: `Твои монеты: ${playerCoins}\n\nЧто купить?`,
-        buttons: [
-            {id: "buy_hammer", type: "default", text: "🔨 Молоток (50 монет)"},
-            {id: "buy_shuffle", type: "default", text: "🔄 Перемешать (30 монет)"},
-            {id: "cancel", type: "cancel"}
-        ]
+        title: "Магазин", message: `Монеты: ${playerCoins}`,
+        buttons: [{id: "buy_hammer", type: "default", text: "🔨 Молоток (50)"}, {id: "buy_shuffle", type: "default", text: "🔄 Микс (30)"}, {id: "cancel", type: "cancel"}]
     }, (buttonId) => {
-        if (buttonId === "buy_hammer") {
-            if (playerCoins >= 50) {
-                playerCoins -= 50; localStorage.setItem('match3_coins', playerCoins);
-                playerHammers++; document.getElementById('hammer-count').innerText = playerHammers;
-                sendToBot({ action: "buy_booster", booster: "hammer", cost: 50 });
-                tg.showAlert("✅ Куплен молоток!");
-            } else tg.showAlert("❌ Недостаточно монет!");
-        } else if (buttonId === "buy_shuffle") {
-            if (playerCoins >= 30) {
-                playerCoins -= 30; localStorage.setItem('match3_coins', playerCoins);
-                playerShuffles++; document.getElementById('shuffle-count').innerText = playerShuffles;
-                sendToBot({ action: "buy_booster", booster: "shuffle", cost: 30 });
-                tg.showAlert("✅ Куплено перемешивание!");
-            } else tg.showAlert("❌ Недостаточно монет!");
+        if (buttonId === "buy_hammer" && playerCoins >= 50) {
+            playerCoins -= 50; localStorage.setItem('match3_coins', playerCoins); playerHammers++;
+            document.getElementById('hammer-count').innerText = playerHammers; sendToBot({ action: "buy_booster", booster: "hammer", cost: 50 });
+        } else if (buttonId === "buy_shuffle" && playerCoins >= 30) {
+            playerCoins -= 30; localStorage.setItem('match3_coins', playerCoins); playerShuffles++;
+            document.getElementById('shuffle-count').innerText = playerShuffles; sendToBot({ action: "buy_booster", booster: "shuffle", cost: 30 });
         }
     });
 }
 
 function startTimer() {
     gameInterval = setInterval(() => {
-        timeLeft--; goalEl.innerText = `⏳: ${timeLeft}с`;
+        timeLeft--; document.getElementById('goal-display').innerText = `⏳: ${timeLeft}с`;
         if (timeLeft <= 0) endGame("Время вышло!");
     }, 1000);
 }
 
 function exitToMenu() {
     if (gameInterval) clearInterval(gameInterval);
-    gameScreen.style.display = 'none'; gameOverScreen.style.display = 'none'; menuScreen.style.display = 'flex';
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('menu').style.display = 'flex';
 }
 
 function endGame(reason) {
-    if (isGameOver) return;
-    isGameOver = true;
-    if (gameInterval) clearInterval(gameInterval);
-    
+    if (isGameOver) return; isGameOver = true; if (gameInterval) clearInterval(gameInterval);
     if (currentMode === 'classic' && reason === "🎉 Уровень пройден!") {
-        currentLevel++;
-        playerCoins += 50; localStorage.setItem('match3_coins', playerCoins);
+        currentLevel++; playerCoins += 50; localStorage.setItem('match3_coins', playerCoins);
         sendToBot({ action: "level_complete", level: currentLevel, reward: 50 });
         document.getElementById('go-title').innerText = reason;
-        document.getElementById('go-score').innerText = `Твои очки: ${score}\n💰 Получено 50 монет!`;
+        document.getElementById('go-score').innerText = `Очки: ${score}\n💰 +50 монет!`;
     } else {
         document.getElementById('go-title').innerText = reason;
-        document.getElementById('go-score').innerText = `Твои очки: ${score}`;
+        document.getElementById('go-score').innerText = `Очки: ${score}`;
     }
-
-    gameScreen.style.display = 'none'; gameOverScreen.style.display = 'flex';
-    
-    if (currentMode === 'vs') {
-        sendToBot({ action: "update_score", score: score });
-    }
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('game-over').style.display = 'flex';
+    if (currentMode === 'vs') sendToBot({ action: "update_score", score: score });
 }
 
-function updateScoreUI() { scoreEl.innerText = `⭐ Очки: ${score}`; }
+function updateScoreUI() { document.getElementById('score-display').innerText = `⭐ Очки: ${score}`; }
 
 function createBoard() {
+    const boardEl = document.getElementById('board');
     boardEl.innerHTML = '';
     for (let r = 0; r < ROWS; r++) {
         board[r] = [];
         for (let c = 0; c < COLS; c++) {
-            const cell = document.createElement('div');
-            cell.classList.add('cell');
+            const cell = document.createElement('div'); cell.classList.add('cell');
             let type = Math.floor(Math.random() * TYPES);
-            while ((c >= 2 && board[r][c-1] === type && board[r][c-2] === type) || 
-                   (r >= 2 && board[r-1][c] === type && board[r-2][c] === type)) {
-                type = Math.floor(Math.random() * TYPES);
-            }
-            board[r][c] = type;
-            updateCell(cell, type);
+            while ((c >= 2 && board[r][c-1] === type && board[r][c-2] === type) || (r >= 2 && board[r-1][c] === type && board[r-2][c] === type)) type = Math.floor(Math.random() * TYPES);
+            board[r][c] = type; updateCell(cell, type);
             cell.addEventListener('touchstart', (e) => { if (isHammerMode) handleHammer(r, c); else handleStart(r, c, e); }, {passive: true});
             cell.addEventListener('touchend', (e) => { if (!isHammerMode) handleEnd(r, c, e); });
             cell.addEventListener('mousedown', (e) => { if (isHammerMode) handleHammer(r, c); else handleStart(r, c, e); });
@@ -240,87 +209,76 @@ function createBoard() {
 }
 
 function handleHammer(r, c) {
-    if (!isHammerMode) return;
-    isHammerMode = false; isAnimating = true;
+    if (!isHammerMode) return; isHammerMode = false; isAnimating = true;
     playerHammers--; document.getElementById('hammer-count').innerText = playerHammers;
     sendToBot({ action: "spend_booster", booster: "hammer" });
     if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
-    
     let cellsDestroyed = [];
     for (let i = -1; i <= 1; i++) {
         for (let j = -1; j <= 1; j++) {
             let nr = r + i, nc = c + j;
             if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
                 cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
-                const cell = boardEl.children[nr * COLS + nc];
+                const cell = document.getElementById('board').children[nr * COLS + nc];
                 cell.classList.add('disappear');
                 setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
             }
         }
     }
-    if (goalType === 'fruit') {
-        cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; });
-        updateGoalUI(); checkGoalComplete();
-    }
+    if (goalType === 'fruit') { cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; }); updateGoalUI(); checkGoalComplete(); }
     setTimeout(() => { dropCells(true); }, 250);
 }
 
 function updateCell(cell, type) {
-    if (type === null) { cell.innerHTML = ''; cell.classList.remove('bomb', 'rainbow', 'super-bomb'); } 
-    else if (type === 'bomb') { cell.innerHTML = `<img src="${BOMB_SPRITE}" alt="bomb">`; cell.classList.add('bomb'); cell.classList.remove('rainbow', 'super-bomb'); } 
-    else if (type === 'super_bomb') { cell.innerHTML = `<img src="${SUPER_BOMB_SPRITE}" alt="super_bomb">`; cell.classList.add('super-bomb'); cell.classList.remove('rainbow', 'bomb'); } 
-    else if (type === 'rainbow') { cell.innerHTML = `<img src="${RAINBOW_SPRITE}" alt="rainbow">`; cell.classList.add('rainbow'); cell.classList.remove('bomb', 'super-bomb'); }
-    else { cell.innerHTML = `<img src="${SPRITES[type]}" alt="fruit">`; cell.classList.remove('bomb', 'rainbow', 'super-bomb'); }
+    if (type === null) { cell.innerHTML = ''; } 
+    else if (type === 'bomb') { cell.innerHTML = `<img src="${BOMB_SPRITE}">`; } 
+    else if (type === 'super_bomb') { cell.innerHTML = `<img src="${SUPER_BOMB_SPRITE}">`; } 
+    else if (type === 'rainbow') { cell.innerHTML = `<img src="${RAINBOW_SPRITE}">`; }
+    else { cell.innerHTML = `<img src="${SPRITES[type]}">`; }
 }
 
 function handleStart(r, c, e) {
     if (isAnimating || isGameOver) return;
-    if (e.type === 'touchstart') { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; } 
-    else { touchStartX = e.clientX; touchStartY = e.clientY; }
+    if (e.type === 'touchstart') { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; } else { touchStartX = e.clientX; touchStartY = e.clientY; }
     touchStartRow = r; touchStartCol = c;
-    const cell = boardEl.children[r * COLS + c];
+    const cell = document.getElementById('board').children[r * COLS + c];
     cell.style.transform = 'scale(1.1)'; cell.style.boxShadow = '0 0 15px white';
 }
 
 function handleEnd(r, c, e) {
     if (isAnimating || isGameOver || touchStartRow === null) return;
-    const startCell = boardEl.children[touchStartRow * COLS + touchStartCol];
+    const startCell = document.getElementById('board').children[touchStartRow * COLS + touchStartCol];
     startCell.style.transform = 'scale(1)'; startCell.style.boxShadow = 'none';
     let endX, endY;
-    if (e.type === 'touchend') { endX = e.changedTouches[0].clientX; endY = e.changedTouches[0].clientY; } 
-    else { endX = e.clientX; endY = e.clientY; }
+    if (e.type === 'touchend') { endX = e.changedTouches[0].clientX; endY = e.changedTouches[0].clientY; } else { endX = e.clientX; endY = e.clientY; }
     const diffX = endX - touchStartX; const diffY = endY - touchStartY;
     if (Math.abs(diffX) < 20 && Math.abs(diffY) < 20) { touchStartRow = null; return; }
-    let targetRow = touchStartRow; let targetCol = touchStartCol;
-    if (Math.abs(diffX) > Math.abs(diffY)) { targetCol += diffX > 0 ? 1 : -1; } 
-    else { targetRow += diffY > 0 ? 1 : -1; }
-    if (targetRow >= 0 && targetRow < ROWS && targetCol >= 0 && targetCol < COLS) { swapCells(touchStartRow, touchStartCol, targetRow, targetCol); }
+    let targetRow = touchStartRow, targetCol = touchStartCol;
+    if (Math.abs(diffX) > Math.abs(diffY)) targetCol += diffX > 0 ? 1 : -1; else targetRow += diffY > 0 ? 1 : -1;
+    if (targetRow >= 0 && targetRow < ROWS && targetCol >= 0 && targetCol < COLS) swapCells(touchStartRow, touchStartCol, targetRow, targetCol);
     touchStartRow = null;
 }
 
 function swapCells(r1, c1, r2, c2) {
     isAnimating = true;
     const temp = board[r1][c1]; board[r1][c1] = board[r2][c2]; board[r2][c2] = temp;
-    updateCell(boardEl.children[r1 * COLS + c1], board[r1][c1]);
-    updateCell(boardEl.children[r2 * COLS + c2], board[r2][c2]);
-    
+    updateCell(document.getElementById('board').children[r1 * COLS + c1], board[r1][c1]);
+    updateCell(document.getElementById('board').children[r2 * COLS + c2], board[r2][c2]);
     setTimeout(() => {
-        if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb' || 
-            board[r1][c1] === 'super_bomb' || board[r2][c2] === 'super_bomb' ||
-            board[r1][c1] === 'rainbow' || board[r2][c2] === 'rainbow') {
+        if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb' || board[r1][c1] === 'super_bomb' || board[r2][c2] === 'super_bomb' || board[r1][c1] === 'rainbow' || board[r2][c2] === 'rainbow') {
             handleSpecialMove(r1, c1, r2, c2); 
         } else {
             let initialMatches = findMatches();
             if (initialMatches.size > 0) {
                 if (currentMode === 'classic') {
-                    movesLeft--; goalEl.innerText = `Ходы: ${movesLeft}`;
+                    movesLeft--; document.getElementById('goal-display').innerText = `Ходы: ${movesLeft}`;
                     if (movesLeft <= 0) { processMatches(initialMatches, true); setTimeout(() => endGame("Ходы закончились!"), 1000); return; }
                 }
                 processMatches(initialMatches, true);
             } else {
                 const temp = board[r1][c1]; board[r1][c1] = board[r2][c2]; board[r2][c2] = temp;
-                updateCell(boardEl.children[r1 * COLS + c1], board[r1][c1]);
-                updateCell(boardEl.children[r2 * COLS + c2], board[r2][c2]);
+                updateCell(document.getElementById('board').children[r1 * COLS + c1], board[r1][c1]);
+                updateCell(document.getElementById('board').children[r2 * COLS + c2], board[r2][c2]);
                 isAnimating = false;
             }
         }
@@ -328,170 +286,103 @@ function swapCells(r1, c1, r2, c2) {
 }
 
 function handleSpecialMove(r1, c1, r2, c2) {
-    let t1 = board[r1][c1], t2 = board[r2][c2];
-    let cellsDestroyed = [];
-    
+    let t1 = board[r1][c1], t2 = board[r2][c2], cellsDestroyed = [];
     if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ!");
         let rA = r1, cA = c1, rB = r2, cB = c2;
         board[rA][cA] = null; board[rB][cB] = null;
         let radA = t1 === 'super_bomb' ? 2 : 1;
-        for (let i = -radA; i <= radA; i++) {
-            for (let j = -radA; j <= radA; j++) {
-                let nr = rA + i, nc = cA + j;
-                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                    cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
-                    const cell = boardEl.children[nr * COLS + nc];
-                    cell.classList.add('disappear');
-                    setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-                }
+        for (let i = -radA; i <= radA; i++) for (let j = -radA; j <= radA; j++) {
+            let nr = rA + i, nc = cA + j;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); const cell = document.getElementById('board').children[nr * COLS + nc];
+                cell.classList.add('disappear'); setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
             }
         }
         let radB = t2 === 'super_bomb' ? 2 : 1;
-        for (let i = -radB; i <= radB; i++) {
-            for (let j = -radB; j <= radB; j++) {
-                let nr = rB + i, nc = cB + j;
-                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                    cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
-                    const cell = boardEl.children[nr * COLS + nc];
-                    cell.classList.add('disappear');
-                    setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-                }
+        for (let i = -radB; i <= radB; i++) for (let j = -radB; j <= radB; j++) {
+            let nr = rB + i, nc = cB + j;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); const cell = document.getElementById('board').children[nr * COLS + nc];
+                cell.classList.add('disappear'); setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
             }
         }
-    } 
-    else if (t1 === 'rainbow' && t2 === 'rainbow') {
+    } else if (t1 === 'rainbow' && t2 === 'rainbow') {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🌈 АБСОЛЮТНАЯ ОЧИСТКА!");
-        for (let r = 0; r < ROWS; r++) {
-            for (let c = 0; c < COLS; c++) {
-                cellsDestroyed.push({r: r, c: c, type: board[r][c]});
-                const cell = boardEl.children[r * COLS + c];
-                cell.classList.add('disappear');
-                setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-            }
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+            cellsDestroyed.push({r, c, type: board[r][c]}); const cell = document.getElementById('board').children[r * COLS + c];
+            cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
         }
-    }
-    else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
+    } else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🌈💥 АБСОЛЮТНАЯ ОЧИСТКА!");
-        for (let r = 0; r < ROWS; r++) {
-            for (let c = 0; c < COLS; c++) {
-                cellsDestroyed.push({r: r, c: c, type: board[r][c]});
-                const cell = boardEl.children[r * COLS + c];
-                cell.classList.add('disappear');
-                setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-            }
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+            cellsDestroyed.push({r, c, type: board[r][c]}); const cell = document.getElementById('board').children[r * COLS + c];
+            cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
         }
-    }
-    else {
+    } else {
         let specialType = null, sr = 0, sc = 0, targetType = null;
-        if (t1 === 'bomb' || t1 === 'super_bomb' || t1 === 'rainbow') {
-            specialType = t1; sr = r1; sc = c1; targetType = t2;
-        } else {
-            specialType = t2; sr = r2; sc = c2; targetType = t1;
-        }
-
+        if (t1 === 'bomb' || t1 === 'super_bomb' || t1 === 'rainbow') { specialType = t1; sr = r1; sc = c1; targetType = t2; } 
+        else { specialType = t2; sr = r2; sc = c2; targetType = t1; }
         if (specialType === 'bomb' || specialType === 'super_bomb') {
             if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
-            board[sr][sc] = null;
-            let radius = specialType === 'super_bomb' ? 2 : 1;
-            for (let i = -radius; i <= radius; i++) {
-                for (let j = -radius; j <= radius; j++) {
-                    let nr = sr + i, nc = sc + j;
-                    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                        cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
-                        const cell = boardEl.children[nr * COLS + nc];
-                        cell.classList.add('disappear');
-                        setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-                    }
+            board[sr][sc] = null; let radius = specialType === 'super_bomb' ? 2 : 1;
+            for (let i = -radius; i <= radius; i++) for (let j = -radius; j <= radius; j++) {
+                let nr = sr + i, nc = sc + j;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                    cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); const cell = document.getElementById('board').children[nr * COLS + nc];
+                    cell.classList.add('disappear'); setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
                 }
             }
         } else if (specialType === 'rainbow') {
             if(soundPop) { soundPop.currentTime = 0; soundPop.play().catch(e => {}); }
             board[sr][sc] = null;
-            for (let r = 0; r < ROWS; r++) {
-                for (let c = 0; c < COLS; c++) {
-                    if (board[r][c] === targetType) {
-                        cellsDestroyed.push({r: r, c: c, type: board[r][c]});
-                        const cell = boardEl.children[r * COLS + c];
-                        cell.classList.add('disappear');
-                        setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-                    }
+            for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+                if (board[r][c] === targetType) {
+                    cellsDestroyed.push({r, c, type: board[r][c]}); const cell = document.getElementById('board').children[r * COLS + c];
+                    cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
                 }
             }
         }
     }
-    
-    if (goalType === 'fruit') {
-        cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; });
-        updateGoalUI(); checkGoalComplete();
-    }
-    score += cellsDestroyed.length * 10;
-    updateScoreUI();
-    setTimeout(() => { dropCells(true); }, 300);
+    if (goalType === 'fruit') { cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; }); updateGoalUI(); checkGoalComplete(); }
+    score += cellsDestroyed.length * 10; updateScoreUI(); setTimeout(() => { dropCells(true); }, 300);
 }
 
 function explodeBombs(wasPlayerMove) { 
-    let explodedAny = false;
-    let queue = []; 
-
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            if (board[r][c] === 'bomb' || board[r][c] === 'super_bomb') {
-                queue.push({r: r, c: c, type: board[r][c]});
-                board[r][c] = null;
-            }
-        }
+    let queue = [];
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        if (board[r][c] === 'bomb' || board[r][c] === 'super_bomb') { queue.push({r, c, type: board[r][c]}); board[r][c] = null; }
     }
-
     if (queue.length > 0) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         while (queue.length > 0) {
-            let b = queue.shift();
-            explodedAny = true;
-            let radius = b.type === 'super_bomb' ? 2 : 1;
-            for (let i = -radius; i <= radius; i++) {
-                for (let j = -radius; j <= radius; j++) {
-                    let nr = b.r + i, nc = b.c + j;
-                    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                        if (board[nr][nc] === 'bomb' || board[nr][nc] === 'super_bomb') {
-                            queue.push({r: nr, c: nc, type: board[nr][nc]});
-                            board[nr][nc] = null;
-                        }
-                        const cell = boardEl.children[nr * COLS + nc];
-                        cell.classList.add('disappear'); 
-                        setTimeout(() => { 
-                            if(board[nr][nc] !== null) {
-                                board[nr][nc] = null; 
-                                updateCell(cell, null); 
-                            }
-                            cell.classList.remove('disappear'); 
-                        }, 200);
-                    }
+            let b = queue.shift(), radius = b.type === 'super_bomb' ? 2 : 1;
+            for (let i = -radius; i <= radius; i++) for (let j = -radius; j <= radius; j++) {
+                let nr = b.r + i, nc = b.c + j;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                    if (board[nr][nc] === 'bomb' || board[nr][nc] === 'super_bomb') { queue.push({r: nr, c: nc, type: board[nr][nc]}); board[nr][nc] = null; }
+                    const cell = document.getElementById('board').children[nr * COLS + nc];
+                    cell.classList.add('disappear'); setTimeout(() => { if(board[nr][nc] !== null) { board[nr][nc] = null; updateCell(cell, null); } cell.classList.remove('disappear'); }, 200);
                 }
             }
         }
         score += 100; updateScoreUI(); setTimeout(() => { dropCells(wasPlayerMove); }, 300); 
-    } 
-    else { checkMatchesAfterDrop(wasPlayerMove); }
+    } else { checkMatchesAfterDrop(wasPlayerMove); }
 }
 
 function findMatches() {
     let matched = new Set();
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS - 2; c++) {
-            if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
-                matched.add(`${r},${c}`); matched.add(`${r},${c+1}`); matched.add(`${r},${c+2}`);
-            }
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS - 2; c++) {
+        if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
+            matched.add(`${r},${c}`); matched.add(`${r},${c+1}`); matched.add(`${r},${c+2}`);
         }
     }
-    for (let c = 0; c < COLS; c++) {
-        for (let r = 0; r < ROWS - 2; r++) {
-            if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
-                matched.add(`${r},${c}`); matched.add(`${r+1},${c}`); matched.add(`${r+2},${c}`);
-            }
+    for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS - 2; r++) {
+        if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
+            matched.add(`${r},${c}`); matched.add(`${r+1},${c}`); matched.add(`${r+2},${c}`);
         }
     }
     return matched;
@@ -499,92 +390,44 @@ function findMatches() {
 
 function processMatches(matched, isPlayerMove) {
     if(soundPop) { soundPop.currentTime = 0; soundPop.play().catch(e => {}); }
-    if (!isPlayerMove) {
-        comboCount++;
-        if (comboCount > 1) {
-            const comboEl = document.getElementById('combo-text');
-            comboEl.innerText = `КОМБО x${comboCount}!`; comboEl.classList.add('show');
-            setTimeout(() => comboEl.classList.remove('show'), 800);
-            score += 50 * comboCount;
-        }
-    } else { comboCount = 0; }
-    
+    if (!isPlayerMove) { comboCount++; if (comboCount > 1) { score += 50 * comboCount; } } else { comboCount = 0; }
     let lines = [];
     for (let r = 0; r < ROWS; r++) {
         let count = 1;
         for (let c = 1; c <= COLS; c++) {
             if (c < COLS && board[r][c] !== null && board[r][c] === board[r][c-1] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb') count++;
-            else {
-                if (count >= 3) {
-                    let line = [];
-                    for(let i=0; i<count; i++) line.push({r: r, c: c-1-i});
-                    lines.push({cells: line, type: board[r][c-1], count: count, dir: 'h'});
-                }
-                count = 1;
-            }
+            else { if (count >= 3) { let line = []; for(let i=0; i<count; i++) line.push({r, c: c-1-i}); lines.push({cells: line, type: board[r][c-1], count}); } count = 1; }
         }
     }
     for (let c = 0; c < COLS; c++) {
         let count = 1;
         for (let r = 1; r <= ROWS; r++) {
             if (r < ROWS && board[r][c] !== null && board[r][c] === board[r-1][c] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb') count++;
-            else {
-                if (count >= 3) {
-                    let line = [];
-                    for(let i=0; i<count; i++) line.push({r: r-1-i, c: c});
-                    lines.push({cells: line, type: board[r-1][c], count: count, dir: 'v'});
-                }
-                count = 1;
-            }
+            else { if (count >= 3) { let line = []; for(let i=0; i<count; i++) line.push({r: r-1-i, c}); lines.push({cells: line, type: board[r-1][c], count}); } count = 1; }
         }
     }
-
     let spawns = [];
-    for (let i = 0; i < lines.length; i++) {
-        for (let j = 0; j < lines.length; j++) {
-            if (i !== j && lines[i].type === lines[j].type) {
-                let intersection = lines[i].cells.find(c1 => lines[j].cells.some(c2 => c1.r === c2.r && c1.c === c2.c));
-                if (intersection) {
-                    spawns.push({r: intersection.r, c: intersection.c, type: 'super_bomb'});
-                    lines[i].processed = true; lines[j].processed = true;
-                }
-            }
+    for (let i = 0; i < lines.length; i++) for (let j = 0; j < lines.length; j++) {
+        if (i !== j && lines[i].type === lines[j].type) {
+            let intersection = lines[i].cells.find(c1 => lines[j].cells.some(c2 => c1.r === c2.r && c1.c === c2.c));
+            if (intersection) { spawns.push({r: intersection.r, c: intersection.c, type: 'super_bomb'}); lines[i].processed = true; lines[j].processed = true; }
         }
     }
-
     lines.forEach(line => {
         if (line.processed) return;
-        if (line.count === 4) {
-            let mid = line.cells[1];
-            spawns.push({r: mid.r, c: mid.c, type: 'bomb'});
-        } else if (line.count >= 5) {
-            let mid = line.cells[2];
-            spawns.push({r: mid.r, c: mid.c, type: 'rainbow'});
-        }
+        if (line.count === 4) { let mid = line.cells[1]; spawns.push({r: mid.r, c: mid.c, type: 'bomb'}); } 
+        else if (line.count >= 5) { let mid = line.cells[2]; spawns.push({r: mid.r, c: mid.c, type: 'rainbow'}); }
     });
-
     matched.forEach(pos => {
         const [r, c] = pos.split(',').map(Number);
         if (!spawns.find(s => s.r === r && s.c === c)) {
-            const cell = boardEl.children[r * COLS + c];
-            cell.classList.add('disappear'); 
-            setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+            const cell = document.getElementById('board').children[r * COLS + c];
+            cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
         }
     });
-
-    spawns.forEach(s => {
-        board[s.r][s.c] = s.type;
-        updateCell(boardEl.children[s.r * COLS + s.c], s.type);
-    });
-
-    if (goalType === 'fruit') {
-        matched.forEach(pos => { const [r, c] = pos.split(',').map(Number); if (board[r][c] === goalFruitIndex) goalProgress++; });
-        updateGoalUI(); checkGoalComplete();
-    }
-
-    let points = matched.size * 10; score += points; updateScoreUI();
-    if (goalType === 'score') updateGoalUI();
-
+    spawns.forEach(s => { board[s.r][s.c] = s.type; updateCell(document.getElementById('board').children[s.r * COLS + s.c], s.type); });
+    if (goalType === 'fruit') { matched.forEach(pos => { const [r, c] = pos.split(',').map(Number); if (board[r][c] === goalFruitIndex) goalProgress++; }); updateGoalUI(); checkGoalComplete(); }
+    let points = matched.size * 10; score += points; updateScoreUI(); if (goalType === 'score') updateGoalUI();
     setTimeout(() => { dropCells(isPlayerMove); }, 250); 
 }
 
@@ -592,16 +435,11 @@ function dropCells(wasPlayerMove) {
     for (let c = 0; c < COLS; c++) {
         let emptyRow = ROWS - 1;
         for (let r = ROWS - 1; r >= 0; r--) {
-            if (board[r][c] !== null) {
-                if (r !== emptyRow) { board[emptyRow][c] = board[r][c]; board[r][c] = null; }
-                emptyRow--;
-            }
+            if (board[r][c] !== null) { if (r !== emptyRow) { board[emptyRow][c] = board[r][c]; board[r][c] = null; } emptyRow--; }
         }
-        for (let r = emptyRow; r >= 0; r--) {
-            board[r][c] = Math.floor(Math.random() * TYPES);
-        }
+        for (let r = emptyRow; r >= 0; r--) { board[r][c] = Math.floor(Math.random() * TYPES); }
     }
-    renderBoard();
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { updateCell(document.getElementById('board').children[r * COLS + c], board[r][c]); }
     setTimeout(() => { checkMatchesAfterDrop(wasPlayerMove); }, 200);
 }
 
@@ -610,14 +448,8 @@ function checkMatchesAfterDrop(wasPlayerMove) {
     if (newMatches.size > 0) { processMatches(newMatches, false); } 
     else {
         isAnimating = false;
-        if (wasPlayerMove && currentMode === 'classic' && movesLeft <= 0) { 
-            if (!checkGoalComplete()) endGame("Ходы закончились!"); 
-        }
+        if (wasPlayerMove && currentMode === 'classic' && movesLeft <= 0) { if (!checkGoalComplete()) endGame("Ходы закончились!"); }
     }
-}
-
-function renderBoard() {
-    for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { updateCell(boardEl.children[r * COLS + c], board[r][c]); } }
 }
 
 loadPlayerData();
