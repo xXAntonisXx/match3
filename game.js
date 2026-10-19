@@ -1,14 +1,27 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-// Блокируем закрытие свайпом на iOS и ПК
+// Блокировка свайпов на iOS (запрет закрытия игры)
 document.addEventListener('touchmove', function(e) {
     e.preventDefault();
 }, { passive: false });
 
 document.getElementById('app').innerHTML = `
 <style>
-    body { margin: 0; background: #1a1a2e; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; user-select: none; overscroll-behavior: none; touch-action: none; }
+    body { 
+        margin: 0; 
+        background: #1a1a2e; 
+        color: #fff; 
+        font-family: sans-serif; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        height: 100vh; 
+        overflow: hidden; 
+        user-select: none; 
+        overscroll-behavior: none; 
+        touch-action: none;
+    }
     #menu { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 20px; box-sizing: border-box; }
     h1 { font-size: 32px; margin-bottom: 10px; color: #4ecca3; text-align: center; }
     p { color: #aaa; margin-bottom: 30px; }
@@ -43,7 +56,7 @@ document.getElementById('app').innerHTML = `
     <button class="menu-btn" onclick="startGame('endless')"><span>♾️ Бесконечный</span> <span>Цели</span></button>
     <button class="menu-btn" onclick="startGame('survival')"><span>⏳ Выживание</span> <span>60 сек</span></button>
     <button class="menu-btn" onclick="startGame('vs')"><span>⚔️ Соревнование</span> <span>На время</span></button>
-    <button class="menu-btn" style="background: #8e44ad; border-color: #8e44ad;" onclick="showTop()"><span>🏆 Топ игроков</span> <span>Рекорды</span></button>
+    <button class="menu-btn" style="background: #8e44ad; border-color: #8e44ad;" onclick="showTop()"><span>🏆 Топ</span> <span>Рекорды</span></button>
     <button class="menu-btn" style="background: #e74c3c; border-color: #e74c3c;" onclick="getDailyBonus()"><span>🎁 Бонус</span> <span>Ежедневно</span></button>
 </div>
 <div id="game-screen">
@@ -123,12 +136,7 @@ let touchStartX = 0, touchStartY = 0, touchStartRow = null, touchStartCol = null
 function sendToBot(data) { tg.sendData(JSON.stringify(data)); }
 function loadPlayerData() {
     let savedCoins = localStorage.getItem('match3_coins');
-    if (savedCoins !== null) {
-        playerCoins = parseInt(savedCoins);
-    } else {
-        playerCoins = 100;
-        localStorage.setItem('match3_coins', 100);
-    }
+    if (savedCoins !== null) playerCoins = parseInt(savedCoins);
     document.getElementById('hammer-count').innerText = playerHammers;
     document.getElementById('shuffle-count').innerText = playerShuffles;
     document.getElementById('shop-coins').innerText = playerCoins;
