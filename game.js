@@ -40,7 +40,7 @@ document.getElementById('app').innerHTML = `
     <button class="menu-btn" onclick="startGame('classic')"><span>🎯 Классика</span> <span>Уровни</span></button>
     <button class="menu-btn" onclick="startGame('endless')"><span>♾️ Бесконечный</span> <span>Цели</span></button>
     <button class="menu-btn" onclick="startGame('survival')"><span>⏳ Выживание</span> <span>60 сек</span></button>
-    <button class="menu-btn" onclick="startGame('vs')"><span>⚔️ Соревнование</span> <span>На время</span></button>
+    <button class="menu-btn" onclick="startGame('vs')"><span>⚔️ Соревнование</span> <span>60 сек</span></button>
     <button class="menu-btn" style="background: #8e44ad; border-color: #8e44ad;" onclick="showTop()"><span>🏆 Топ игроков</span> <span>Рекорды</span></button>
     <button class="menu-btn" style="background: #e74c3c; border-color: #e74c3c;" onclick="getDailyBonus()"><span>🎁 Бонус</span> <span>Ежедневно</span></button>
 </div>
@@ -123,13 +123,11 @@ function loadPlayerData() {
     let savedCoins = localStorage.getItem('match3_coins');
     if (savedCoins !== null) playerCoins = parseInt(savedCoins);
     
-    // БЕЗОПАСНЫЙ ПАРСИНГ ПАРАМЕТРА ADD ДЛЯ IPHONE
     let addCoins = null;
     try {
         const urlParams = new URLSearchParams(window.location.search);
         addCoins = urlParams.get('add');
     } catch (e) {
-        // Если URLSearchParams не сработал (старый Safari), парсим вручную
         const match = window.location.search.match(/[?&]add=(\d+)/);
         if (match) addCoins = match[1];
     }
@@ -138,12 +136,9 @@ function loadPlayerData() {
         let newCoins = parseInt(addCoins);
         playerCoins += newCoins;
         localStorage.setItem('match3_coins', playerCoins);
-        
-        // Убираем параметр ?add из URL, чтобы монеты не начислялись бесконечно при обновлении
         if (window.history && window.history.replaceState) {
             window.history.replaceState({}, document.title, window.location.pathname);
         }
-        
         setTimeout(() => { tg.showAlert(`🎉 Тебе начислено ${newCoins} монет!\nТеперь у тебя ${playerCoins} монет.`); }, 500);
     }
 
@@ -202,6 +197,7 @@ function startGame(mode) {
         document.getElementById('goal-display').innerText = mode === 'classic' ? `Ходы: ${movesLeft}` : `Ходы: ∞`;
         generateGoal();
     } else {
+        // ТЕПЕРЬ И В СОРЕВНОВАНИИ, И В ВЫЖИВАНИИ ПО 60 СЕКУНД
         timeLeft = 60;
         document.getElementById('goal-display').innerText = `⏳: ${timeLeft}с`;
         document.getElementById('goal-text').innerText = "Цель: Продержись!";
@@ -258,7 +254,10 @@ function useBooster(type) {
 
 function startTimer() {
     gameInterval = setInterval(() => {
-        timeLeft--; document.getElementById('goal-display').innerText = `⏳: ${timeLeft}с`;
+        if (timeLeft > 0) {
+            timeLeft--; 
+            document.getElementById('goal-display').innerText = `⏳: ${timeLeft}с`;
+        }
         if (timeLeft <= 0) endGame("Время вышло!");
     }, 1000);
 }
@@ -333,6 +332,9 @@ function handleHammer(r, c) {
     }
     if (goalType === 'fruit') { cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; }); updateGoalUI(); checkGoalComplete(); }
     
+    // ДОБАВЛЯЕМ СЕКУНДУ В РЕЖИМЕ ВЫЖИВАНИЯ
+    if (currentMode === 'survival') { timeLeft += 1; }
+
     setTimeout(() => { 
         document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear'));
         dropCells(true); 
@@ -423,6 +425,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
                 el.classList.add('disappear'); 
             }
         });
+        if (currentMode === 'survival') { timeLeft += 2; }
         setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(true); }, 200);
     }
     else if (t1 === 'bomb' && t2 === 'bomb') {
@@ -454,6 +457,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
             const el = document.getElementById('board').children[cell.r * COLS + cell.c];
             el.classList.add('disappear'); 
         });
+        if (currentMode === 'survival') { timeLeft += 2; }
         setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(true); }, 200);
     }
     else {
@@ -474,6 +478,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
                 const el = document.getElementById('board').children[cell.r * COLS + cell.c];
                 el.classList.add('disappear'); 
             });
+            if (currentMode === 'survival') { timeLeft += 1; }
             setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(true); }, 200);
         } else if (specialType === 'bomb') {
             if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
@@ -487,6 +492,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
                     cell.classList.add('disappear'); 
                 }
             }
+            if (currentMode === 'survival') { timeLeft += 1; }
             setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(true); }, 200);
         } else if (specialType === 'rainbow') {
             if(soundPop) { soundPop.currentTime = 0; soundPop.play().catch(e => {}); }
@@ -499,6 +505,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
                     cell.classList.add('disappear'); 
                 }
             }
+            if (currentMode === 'survival') { timeLeft += 3; }
             setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(true); }, 200);
         }
     }
@@ -545,6 +552,7 @@ function explodeBombs(wasPlayerMove) {
         
         score += 100; 
         updateScoreUI(); 
+        if (currentMode === 'survival') { timeLeft += 1; }
         setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(wasPlayerMove); }, 200); 
     } else { 
         checkMatchesAfterDrop(wasPlayerMove); 
