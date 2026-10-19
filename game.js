@@ -1,27 +1,12 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-// Блокировка свайпов на iOS (запрет закрытия игры)
-document.addEventListener('touchmove', function(e) {
-    e.preventDefault();
-}, { passive: false });
+// Блокировка свайпов на iOS
+document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
 
 document.getElementById('app').innerHTML = `
 <style>
-    body { 
-        margin: 0; 
-        background: #1a1a2e; 
-        color: #fff; 
-        font-family: sans-serif; 
-        display: flex; 
-        flex-direction: column; 
-        align-items: center; 
-        height: 100vh; 
-        overflow: hidden; 
-        user-select: none; 
-        overscroll-behavior: none; 
-        touch-action: none;
-    }
+    body { margin: 0; background: #1a1a2e; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; user-select: none; overscroll-behavior: none; touch-action: none; }
     #menu { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 20px; box-sizing: border-box; }
     h1 { font-size: 32px; margin-bottom: 10px; color: #4ecca3; text-align: center; }
     p { color: #aaa; margin-bottom: 30px; }
@@ -56,7 +41,7 @@ document.getElementById('app').innerHTML = `
     <button class="menu-btn" onclick="startGame('endless')"><span>♾️ Бесконечный</span> <span>Цели</span></button>
     <button class="menu-btn" onclick="startGame('survival')"><span>⏳ Выживание</span> <span>60 сек</span></button>
     <button class="menu-btn" onclick="startGame('vs')"><span>⚔️ Соревнование</span> <span>На время</span></button>
-    <button class="menu-btn" style="background: #8e44ad; border-color: #8e44ad;" onclick="showTop()"><span>🏆 Топ</span> <span>Рекорды</span></button>
+    <button class="menu-btn" style="background: #8e44ad; border-color: #8e44ad;" onclick="showTop()"><span>🏆 Топ игроков</span> <span>Рекорды</span></button>
     <button class="menu-btn" style="background: #e74c3c; border-color: #e74c3c;" onclick="getDailyBonus()"><span>🎁 Бонус</span> <span>Ежедневно</span></button>
 </div>
 <div id="game-screen">
@@ -137,6 +122,31 @@ function sendToBot(data) { tg.sendData(JSON.stringify(data)); }
 function loadPlayerData() {
     let savedCoins = localStorage.getItem('match3_coins');
     if (savedCoins !== null) playerCoins = parseInt(savedCoins);
+    
+    // БЕЗОПАСНЫЙ ПАРСИНГ ПАРАМЕТРА ADD ДЛЯ IPHONE
+    let addCoins = null;
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        addCoins = urlParams.get('add');
+    } catch (e) {
+        // Если URLSearchParams не сработал (старый Safari), парсим вручную
+        const match = window.location.search.match(/[?&]add=(\d+)/);
+        if (match) addCoins = match[1];
+    }
+
+    if (addCoins && !isNaN(addCoins)) {
+        let newCoins = parseInt(addCoins);
+        playerCoins += newCoins;
+        localStorage.setItem('match3_coins', playerCoins);
+        
+        // Убираем параметр ?add из URL, чтобы монеты не начислялись бесконечно при обновлении
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        
+        setTimeout(() => { tg.showAlert(`🎉 Тебе начислено ${newCoins} монет!\nТеперь у тебя ${playerCoins} монет.`); }, 500);
+    }
+
     document.getElementById('hammer-count').innerText = playerHammers;
     document.getElementById('shuffle-count').innerText = playerShuffles;
     document.getElementById('shop-coins').innerText = playerCoins;
