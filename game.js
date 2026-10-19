@@ -21,8 +21,8 @@ document.getElementById('app').innerHTML = `
     .btn-menu { width: 90%; max-width: 400px; margin-top: 10px; background: #e94560; border: none; padding: 12px; font-weight: bold; }
     .btn-shop { width: 90%; max-width: 400px; margin-top: 10px; background: #f39c12; border: none; color: #1a1a2e; padding: 12px; font-weight: bold; }
     #game-over { display: none; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10; }
-    #combo-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; font-weight: bold; color: #ffcc00; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 100; }
-    #combo-text.show { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+    #combo-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 30px; font-weight: bold; color: #ffcc00; text-shadow: 0 0 10px #ff0000; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 100; text-align: center; width: 80%; }
+    #combo-text.show { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
 </style>
 <div id="menu">
     <h1>🍉 Match 3 Pro</h1>
@@ -123,14 +123,15 @@ function checkGoalComplete() {
     if (currentMode === 'classic' && ((goalType === 'score' && score >= goalTarget) || (goalType === 'fruit' && goalProgress >= goalTarget))) {
         endGame("🎉 Уровень пройден!"); return true;
     } else if (currentMode === 'endless' && goalType === 'fruit' && goalProgress >= goalTarget) {
-        // НАГРАДА ЗА БЕСКОНЕЧНУЮ ЦЕЛЬ - 1 МОНЕТА
         currentLevel++; score += 500; playerCoins += 1; localStorage.setItem('match3_coins', playerCoins);
         sendToBot({ action: "endless_goal", reward: 1 });
         
-        // Показываем красивое уведомление
-        tg.showAlert("🎉 Цель выполнена! Получена 1 монета!");
-        
-        // Небольшая задержка, чтобы игра не зависла и анимация успела закончиться
+        // Показываем текст внутри игры (без showAlert, чтобы ПК не вылетал)
+        const comboEl = document.getElementById('combo-text');
+        comboEl.innerText = "ЦЕЛЬ ВЫПОЛНЕНА! +1 🪙";
+        comboEl.classList.add('show');
+        setTimeout(() => comboEl.classList.remove('show'), 1500);
+
         setTimeout(() => { generateGoal(); }, 300); 
         return false; 
     }
@@ -180,7 +181,6 @@ function exitToMenu() {
 function endGame(reason) {
     if (isGameOver) return; isGameOver = true; if (gameInterval) clearInterval(gameInterval);
     if (currentMode === 'classic' && reason === "🎉 Уровень пройден!") {
-        // НАГРАДА ЗА УРОВЕНЬ - 5 МОНЕТ
         currentLevel++; playerCoins += 5; localStorage.setItem('match3_coins', playerCoins);
         sendToBot({ action: "level_complete", level: currentLevel, reward: 5 });
         document.getElementById('go-title').innerText = reason;
