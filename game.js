@@ -124,23 +124,17 @@ function loadPlayerData() {
 
 function openShop() { document.getElementById('shop-coins').innerText = playerCoins; document.getElementById('shop-modal').style.display = 'flex'; }
 function closeShop() { document.getElementById('shop-modal').style.display = 'none'; }
+function openDonate() { document.getElementById('donate-modal').style.display = 'flex'; }
+function closeDonate() { document.getElementById('donate-modal').style.display = 'none'; }
 
-function openDonate() { 
-    document.getElementById('donate-modal').style.display = 'flex'; 
-}
-
-function closeDonate() { 
-    document.getElementById('donate-modal').style.display = 'none'; 
-    tg.MainButton.hide(); 
-}
-
-// ФУНКЦИЯ ПОКУПКИ ЗВЕЗД С ЗАДЕРЖКОЙ (ЧТОБЫ РАБОТАЛО НА ANDROID)
+// ВОЗВРАЩАЕМ SHOWALERT ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ
 function buyStars(amount, stars) {
     tg.sendData(JSON.stringify({ action: "add_coins", amount: amount, stars: stars }));
-    // Задержка в 50мс дает Telegram время передать данные перед закрытием
-    setTimeout(() => {
+    
+    // Ждем, пока пользователь нажмет "ОК", и только потом закрываем игру
+    tg.showAlert("Счет на оплату отправлен в чат с ботом! Оплати его, и монеты зачислятся.", () => {
         tg.close();
-    }, 50);
+    });
 }
 
 function buyItem(type, cost) {
