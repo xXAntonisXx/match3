@@ -9,11 +9,16 @@ const BOMB_SPRITE = 'bomb.png';
 const SUPER_BOMB_SPRITE = 'super_bomb.png'; 
 const RAINBOW_SPRITE = 'rainbow.png'; 
 
-// Безопасная загрузка звуков
-const soundPop = new Audio('pop.mp3');
-const soundBoom = new Audio('boom.mp3');
-soundPop.volume = 0.5;
-soundBoom.volume = 0.5;
+// Загрузка звуков с защитой от вылетов
+let soundPop, soundBoom;
+try {
+    soundPop = new Audio('pop.mp3');
+    soundBoom = new Audio('boom.mp3');
+    soundPop.volume = 0.5;
+    soundBoom.volume = 0.5;
+} catch (e) {
+    console.log("Звуки не поддерживаются на этом устройстве");
+}
 
 let board = [];
 let score = 0;
@@ -239,7 +244,7 @@ function handleHammer(r, c) {
     isHammerMode = false; isAnimating = true;
     playerHammers--; document.getElementById('hammer-count').innerText = playerHammers;
     sendToBot({ action: "spend_booster", booster: "hammer" });
-    soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
+    if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
     
     let cellsDestroyed = [];
     for (let i = -1; i <= 1; i++) {
@@ -327,7 +332,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
     let cellsDestroyed = [];
     
     if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
-        soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
+        if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ!");
         let rA = r1, cA = c1, rB = r2, cB = c2;
         board[rA][cA] = null; board[rB][cB] = null;
@@ -357,7 +362,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
         }
     } 
     else if (t1 === 'rainbow' && t2 === 'rainbow') {
-        soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
+        if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🌈 АБСОЛЮТНАЯ ОЧИСТКА!");
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
@@ -369,7 +374,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
         }
     }
     else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
-        soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
+        if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🌈💥 АБСОЛЮТНАЯ ОЧИСТКА!");
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
@@ -389,7 +394,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
         }
 
         if (specialType === 'bomb' || specialType === 'super_bomb') {
-            soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
+            if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
             board[sr][sc] = null;
             let radius = specialType === 'super_bomb' ? 2 : 1;
             for (let i = -radius; i <= radius; i++) {
@@ -404,7 +409,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
                 }
             }
         } else if (specialType === 'rainbow') {
-            soundPop.currentTime = 0; soundPop.play().catch(e => {});
+            if(soundPop) { soundPop.currentTime = 0; soundPop.play().catch(e => {}); }
             board[sr][sc] = null;
             for (let r = 0; r < ROWS; r++) {
                 for (let c = 0; c < COLS; c++) {
@@ -442,7 +447,7 @@ function explodeBombs(wasPlayerMove) {
     }
 
     if (queue.length > 0) {
-        soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
+        if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         while (queue.length > 0) {
             let b = queue.shift();
             explodedAny = true;
@@ -493,7 +498,7 @@ function findMatches() {
 }
 
 function processMatches(matched, isPlayerMove) {
-    soundPop.currentTime = 0; soundPop.play().catch(e => {}); 
+    if(soundPop) { soundPop.currentTime = 0; soundPop.play().catch(e => {}); }
     if (!isPlayerMove) {
         comboCount++;
         if (comboCount > 1) {
