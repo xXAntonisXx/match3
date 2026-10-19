@@ -127,14 +127,13 @@ function closeShop() { document.getElementById('shop-modal').style.display = 'no
 function openDonate() { document.getElementById('donate-modal').style.display = 'flex'; }
 function closeDonate() { document.getElementById('donate-modal').style.display = 'none'; }
 
-// ВОЗВРАЩАЕМ SHOWALERT ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ
+// НОВАЯ ФУНКЦИЯ ПОКУПКИ (ЧЕРЕЗ ССЫЛКУ)
 function buyStars(amount, stars) {
-    tg.sendData(JSON.stringify({ action: "add_coins", amount: amount, stars: stars }));
+    let botUsername = "Match3Pro_bot"; // ВСТАВЬ СЮДА СВОЙ USERNAME БЕЗ @
+    let url = `https://t.me/${botUsername}?start=pay_${amount}`;
     
-    // Ждем, пока пользователь нажмет "ОК", и только потом закрываем игру
-    tg.showAlert("Счет на оплату отправлен в чат с ботом! Оплати его, и монеты зачислятся.", () => {
-        tg.close();
-    });
+    // Открываем ссылку в Telegram
+    tg.openTelegramLink(url);
 }
 
 function buyItem(type, cost) {
