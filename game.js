@@ -1,6 +1,6 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
- 
+
 const ROWS = 8;
 const COLS = 8;
 const TYPES = 6; 
@@ -8,10 +8,13 @@ const SPRITES = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png'];
 const BOMB_SPRITE = 'bomb.png';
 const SUPER_BOMB_SPRITE = 'super_bomb.png'; 
 const RAINBOW_SPRITE = 'rainbow.png'; 
- 
+
+// Безопасная загрузка звуков
 const soundPop = new Audio('pop.mp3');
 const soundBoom = new Audio('boom.mp3');
- 
+soundPop.volume = 0.5;
+soundBoom.volume = 0.5;
+
 let board = [];
 let score = 0;
 let currentMode = 'classic';
@@ -21,21 +24,21 @@ let gameInterval = null;
 let isGameOver = false;
 let isAnimating = false; 
 let comboCount = 0;
- 
+
 let playerCoins = 100; 
 let playerHammers = 0;
 let playerShuffles = 0;
 let currentLevel = 1;
- 
+
 let goalType = null; 
 let goalTarget = 0;
 let goalProgress = 0;
 let goalFruitIndex = 0; 
 let isHammerMode = false;
- 
+
 let touchStartX = 0; let touchStartY = 0;
 let touchStartRow = null; let touchStartCol = null;
- 
+
 const boardEl = document.getElementById('board');
 const scoreEl = document.getElementById('score-display');
 const goalEl = document.getElementById('goal-display');
@@ -44,9 +47,9 @@ const goalProgressEl = document.getElementById('goal-progress');
 const menuScreen = document.getElementById('menu');
 const gameScreen = document.getElementById('game-screen');
 const gameOverScreen = document.getElementById('game-over');
- 
+
 function sendToBot(data) { tg.sendData(JSON.stringify(data)); }
- 
+
 function loadPlayerData() {
     let savedCoins = localStorage.getItem('match3_coins');
     if (savedCoins !== null) playerCoins = parseInt(savedCoins);
@@ -54,11 +57,7 @@ function loadPlayerData() {
     document.getElementById('shuffle-count').innerText = playerShuffles;
     sendToBot({ action: "get_data" });
 }
- 
-function showTop() {
-    tg.showAlert("Чтобы увидеть рейтинг всех игроков, нажми кнопку '🏆 Топ игроков' в самом боте или напиши ему команду /top!");
-}
- 
+
 function startGame(mode) {
     currentMode = mode;
     score = 0;
@@ -69,9 +68,9 @@ function startGame(mode) {
     menuScreen.style.display = 'none';
     gameOverScreen.style.display = 'none';
     gameScreen.style.display = 'flex';
- 
+    
     if (gameInterval) clearInterval(gameInterval);
- 
+
     if (mode === 'classic') {
         movesLeft = 30;
         goalEl.innerText = `Ходы: ${movesLeft}`;
@@ -90,7 +89,7 @@ function startGame(mode) {
     updateScoreUI();
     createBoard();
 }
- 
+
 function generateGoal() {
     if (currentMode === 'classic' && currentLevel % 3 === 0) {
         goalType = 'score';
@@ -107,12 +106,12 @@ function generateGoal() {
     }
     updateGoalUI();
 }
- 
+
 function updateGoalUI() {
     if (goalType === 'score') goalProgressEl.innerText = `${score} / ${goalTarget}`;
     else if (goalType === 'fruit') goalProgressEl.innerText = `${goalProgress} / ${goalTarget}`;
 }
- 
+
 function checkGoalComplete() {
     if (currentMode === 'classic') {
         if ((goalType === 'score' && score >= goalTarget) || (goalType === 'fruit' && goalProgress >= goalTarget)) {
@@ -130,7 +129,7 @@ function checkGoalComplete() {
     }
     return false;
 }
- 
+
 function useBooster(type) {
     if (isAnimating || isGameOver) return;
     if (type === 'hammer') {
@@ -146,7 +145,7 @@ function useBooster(type) {
         } else tg.showAlert("У тебя нет перемешиваний! Купи их в магазине.");
     }
 }
- 
+
 function openShop() {
     tg.showPopup({
         title: "Магазин",
@@ -174,24 +173,24 @@ function openShop() {
         }
     });
 }
- 
+
 function startTimer() {
     gameInterval = setInterval(() => {
         timeLeft--; goalEl.innerText = `⏳: ${timeLeft}с`;
         if (timeLeft <= 0) endGame("Время вышло!");
     }, 1000);
 }
- 
+
 function exitToMenu() {
     if (gameInterval) clearInterval(gameInterval);
     gameScreen.style.display = 'none'; gameOverScreen.style.display = 'none'; menuScreen.style.display = 'flex';
 }
- 
+
 function endGame(reason) {
     if (isGameOver) return;
     isGameOver = true;
     if (gameInterval) clearInterval(gameInterval);
- 
+    
     if (currentMode === 'classic' && reason === "🎉 Уровень пройден!") {
         currentLevel++;
         playerCoins += 50; localStorage.setItem('match3_coins', playerCoins);
@@ -202,17 +201,16 @@ function endGame(reason) {
         document.getElementById('go-title').innerText = reason;
         document.getElementById('go-score').innerText = `Твои очки: ${score}`;
     }
- 
+
     gameScreen.style.display = 'none'; gameOverScreen.style.display = 'flex';
- 
-    // ОТПРАВЛЯЕМ РЕКОРД В БОТ (ТОЛЬКО ДЛЯ СОРЕВНОВАНИЯ)
+    
     if (currentMode === 'vs') {
         sendToBot({ action: "update_score", score: score });
     }
 }
- 
+
 function updateScoreUI() { scoreEl.innerText = `⭐ Очки: ${score}`; }
- 
+
 function createBoard() {
     boardEl.innerHTML = '';
     for (let r = 0; r < ROWS; r++) {
@@ -235,14 +233,14 @@ function createBoard() {
         }
     }
 }
- 
+
 function handleHammer(r, c) {
     if (!isHammerMode) return;
     isHammerMode = false; isAnimating = true;
     playerHammers--; document.getElementById('hammer-count').innerText = playerHammers;
     sendToBot({ action: "spend_booster", booster: "hammer" });
     soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
- 
+    
     let cellsDestroyed = [];
     for (let i = -1; i <= 1; i++) {
         for (let j = -1; j <= 1; j++) {
@@ -261,7 +259,7 @@ function handleHammer(r, c) {
     }
     setTimeout(() => { dropCells(true); }, 250);
 }
- 
+
 function updateCell(cell, type) {
     if (type === null) { cell.innerHTML = ''; cell.classList.remove('bomb', 'rainbow', 'super-bomb'); } 
     else if (type === 'bomb') { cell.innerHTML = `<img src="${BOMB_SPRITE}" alt="bomb">`; cell.classList.add('bomb'); cell.classList.remove('rainbow', 'super-bomb'); } 
@@ -269,7 +267,7 @@ function updateCell(cell, type) {
     else if (type === 'rainbow') { cell.innerHTML = `<img src="${RAINBOW_SPRITE}" alt="rainbow">`; cell.classList.add('rainbow'); cell.classList.remove('bomb', 'super-bomb'); }
     else { cell.innerHTML = `<img src="${SPRITES[type]}" alt="fruit">`; cell.classList.remove('bomb', 'rainbow', 'super-bomb'); }
 }
- 
+
 function handleStart(r, c, e) {
     if (isAnimating || isGameOver) return;
     if (e.type === 'touchstart') { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; } 
@@ -278,7 +276,7 @@ function handleStart(r, c, e) {
     const cell = boardEl.children[r * COLS + c];
     cell.style.transform = 'scale(1.1)'; cell.style.boxShadow = '0 0 15px white';
 }
- 
+
 function handleEnd(r, c, e) {
     if (isAnimating || isGameOver || touchStartRow === null) return;
     const startCell = boardEl.children[touchStartRow * COLS + touchStartCol];
@@ -294,13 +292,13 @@ function handleEnd(r, c, e) {
     if (targetRow >= 0 && targetRow < ROWS && targetCol >= 0 && targetCol < COLS) { swapCells(touchStartRow, touchStartCol, targetRow, targetCol); }
     touchStartRow = null;
 }
- 
+
 function swapCells(r1, c1, r2, c2) {
     isAnimating = true;
     const temp = board[r1][c1]; board[r1][c1] = board[r2][c2]; board[r2][c2] = temp;
     updateCell(boardEl.children[r1 * COLS + c1], board[r1][c1]);
     updateCell(boardEl.children[r2 * COLS + c2], board[r2][c2]);
- 
+    
     setTimeout(() => {
         if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb' || 
             board[r1][c1] === 'super_bomb' || board[r2][c2] === 'super_bomb' ||
@@ -323,11 +321,11 @@ function swapCells(r1, c1, r2, c2) {
         }
     }, 150);
 }
- 
+
 function handleSpecialMove(r1, c1, r2, c2) {
     let t1 = board[r1][c1], t2 = board[r2][c2];
     let cellsDestroyed = [];
- 
+    
     if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
         tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ!");
@@ -389,7 +387,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
         } else {
             specialType = t2; sr = r2; sc = c2; targetType = t1;
         }
- 
+
         if (specialType === 'bomb' || specialType === 'super_bomb') {
             soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
             board[sr][sc] = null;
@@ -420,7 +418,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
             }
         }
     }
- 
+    
     if (goalType === 'fruit') {
         cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; });
         updateGoalUI(); checkGoalComplete();
@@ -429,11 +427,11 @@ function handleSpecialMove(r1, c1, r2, c2) {
     updateScoreUI();
     setTimeout(() => { dropCells(true); }, 300);
 }
- 
+
 function explodeBombs(wasPlayerMove) { 
     let explodedAny = false;
     let queue = []; 
- 
+
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
             if (board[r][c] === 'bomb' || board[r][c] === 'super_bomb') {
@@ -442,7 +440,7 @@ function explodeBombs(wasPlayerMove) {
             }
         }
     }
- 
+
     if (queue.length > 0) {
         soundBoom.currentTime = 0; soundBoom.play().catch(e => {});
         while (queue.length > 0) {
@@ -474,7 +472,7 @@ function explodeBombs(wasPlayerMove) {
     } 
     else { checkMatchesAfterDrop(wasPlayerMove); }
 }
- 
+
 function findMatches() {
     let matched = new Set();
     for (let r = 0; r < ROWS; r++) {
@@ -493,7 +491,7 @@ function findMatches() {
     }
     return matched;
 }
- 
+
 function processMatches(matched, isPlayerMove) {
     soundPop.currentTime = 0; soundPop.play().catch(e => {}); 
     if (!isPlayerMove) {
@@ -505,7 +503,7 @@ function processMatches(matched, isPlayerMove) {
             score += 50 * comboCount;
         }
     } else { comboCount = 0; }
- 
+    
     let lines = [];
     for (let r = 0; r < ROWS; r++) {
         let count = 1;
@@ -535,7 +533,7 @@ function processMatches(matched, isPlayerMove) {
             }
         }
     }
- 
+
     let spawns = [];
     for (let i = 0; i < lines.length; i++) {
         for (let j = 0; j < lines.length; j++) {
@@ -548,7 +546,7 @@ function processMatches(matched, isPlayerMove) {
             }
         }
     }
- 
+
     lines.forEach(line => {
         if (line.processed) return;
         if (line.count === 4) {
@@ -559,7 +557,7 @@ function processMatches(matched, isPlayerMove) {
             spawns.push({r: mid.r, c: mid.c, type: 'rainbow'});
         }
     });
- 
+
     matched.forEach(pos => {
         const [r, c] = pos.split(',').map(Number);
         if (!spawns.find(s => s.r === r && s.c === c)) {
@@ -568,23 +566,23 @@ function processMatches(matched, isPlayerMove) {
             setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
         }
     });
- 
+
     spawns.forEach(s => {
         board[s.r][s.c] = s.type;
         updateCell(boardEl.children[s.r * COLS + s.c], s.type);
     });
- 
+
     if (goalType === 'fruit') {
         matched.forEach(pos => { const [r, c] = pos.split(',').map(Number); if (board[r][c] === goalFruitIndex) goalProgress++; });
         updateGoalUI(); checkGoalComplete();
     }
- 
+
     let points = matched.size * 10; score += points; updateScoreUI();
     if (goalType === 'score') updateGoalUI();
- 
+
     setTimeout(() => { dropCells(isPlayerMove); }, 250); 
 }
- 
+
 function dropCells(wasPlayerMove) {
     for (let c = 0; c < COLS; c++) {
         let emptyRow = ROWS - 1;
@@ -594,7 +592,6 @@ function dropCells(wasPlayerMove) {
                 emptyRow--;
             }
         }
-        // Принудительно заполняем пустые места
         for (let r = emptyRow; r >= 0; r--) {
             board[r][c] = Math.floor(Math.random() * TYPES);
         }
@@ -602,7 +599,7 @@ function dropCells(wasPlayerMove) {
     renderBoard();
     setTimeout(() => { checkMatchesAfterDrop(wasPlayerMove); }, 200);
 }
- 
+
 function checkMatchesAfterDrop(wasPlayerMove) {
     let newMatches = findMatches();
     if (newMatches.size > 0) { processMatches(newMatches, false); } 
@@ -613,9 +610,9 @@ function checkMatchesAfterDrop(wasPlayerMove) {
         }
     }
 }
- 
+
 function renderBoard() {
     for (let r = 0; r < ROWS; r++) { for (let c = 0; c < COLS; c++) { updateCell(boardEl.children[r * COLS + c], board[r][c]); } }
 }
- 
+
 loadPlayerData();
