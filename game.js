@@ -21,7 +21,6 @@ document.getElementById('app').innerHTML = `
     .btn-menu { width: 90%; max-width: 400px; margin-top: 10px; background: #e94560; border: none; padding: 12px; font-weight: bold; }
     .btn-shop { width: 90%; max-width: 400px; margin-top: 10px; background: #f39c12; border: none; color: #1a1a2e; padding: 12px; font-weight: bold; }
 
-    /* НОВЫЙ ВСТРОЕННЫЙ МАГАЗИН */
     #shop-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
     .shop-item { background: rgba(255,255,255,0.1); border: 1px solid #4ecca3; padding: 15px; margin: 10px; border-radius: 10px; width: 80%; max-width: 300px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
     .shop-item:hover { background: rgba(255,255,255,0.2); }
@@ -50,7 +49,6 @@ document.getElementById('app').innerHTML = `
     <button class="action btn-menu" onclick="exitToMenu()">⬅️ В меню</button>
 </div>
 
-<!-- ВСТРОЕННЫЙ МАГАЗИН -->
 <div id="shop-modal">
     <h2 style="color: #f39c12;">Магазин</h2>
     <p>Твои монеты: <span id="shop-coins">100</span></p>
@@ -76,6 +74,7 @@ const SPRITES = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png'];
 const BOMB_SPRITE = 'bomb.png';
 const SUPER_BOMB_SPRITE = 'super_bomb.png'; 
 const RAINBOW_SPRITE = 'rainbow.png'; 
+const ROCKET_SPRITE = 'rocket.png'; // НОВАЯ КАРТИНКА
 
 let soundPop, soundBoom;
 try {
@@ -105,41 +104,25 @@ function loadPlayerData() {
     document.getElementById('shop-coins').innerText = playerCoins;
 }
 
-// --- ВСТРОЕННЫЙ МАГАЗИН ---
 function openShop() {
     document.getElementById('shop-coins').innerText = playerCoins;
     document.getElementById('shop-modal').style.display = 'flex';
 }
 
-function closeShop() {
-    document.getElementById('shop-modal').style.display = 'none';
-}
+function closeShop() { document.getElementById('shop-modal').style.display = 'none'; }
 
 function buyItem(type, cost) {
     if (playerCoins >= cost) {
-        playerCoins -= cost;
-        localStorage.setItem('match3_coins', playerCoins);
+        playerCoins -= cost; localStorage.setItem('match3_coins', playerCoins);
         document.getElementById('shop-coins').innerText = playerCoins;
-        
-        if (type === 'hammer') {
-            playerHammers++;
-            document.getElementById('hammer-count').innerText = playerHammers;
-            sendToBot({ action: "buy_booster", booster: "hammer", cost: cost });
-        } else if (type === 'shuffle') {
-            playerShuffles++;
-            document.getElementById('shuffle-count').innerText = playerShuffles;
-            sendToBot({ action: "buy_booster", booster: "shuffle", cost: cost });
-        }
-        
-        // Показываем всплывающий текст вместо alert
+        if (type === 'hammer') { playerHammers++; document.getElementById('hammer-count').innerText = playerHammers; sendToBot({ action: "buy_booster", booster: "hammer", cost: cost }); } 
+        else if (type === 'shuffle') { playerShuffles++; document.getElementById('shuffle-count').innerText = playerShuffles; sendToBot({ action: "buy_booster", booster: "shuffle", cost: cost }); }
         const comboEl = document.getElementById('combo-text');
-        comboEl.innerText = "КУПЛЕНО!";
-        comboEl.classList.add('show');
+        comboEl.innerText = "КУПЛЕНО!"; comboEl.classList.add('show');
         setTimeout(() => comboEl.classList.remove('show'), 1000);
     } else {
         const comboEl = document.getElementById('combo-text');
-        comboEl.innerText = "НЕДОСТАТОЧНО МОНЕТ!";
-        comboEl.classList.add('show');
+        comboEl.innerText = "НЕДОСТАТОЧНО МОНЕТ!"; comboEl.classList.add('show');
         setTimeout(() => comboEl.classList.remove('show'), 1000);
     }
 }
@@ -192,7 +175,6 @@ function checkGoalComplete() {
         comboEl.innerText = "ЦЕЛЬ ВЫПОЛНЕНА! +1 🪙";
         comboEl.classList.add('show');
         setTimeout(() => comboEl.classList.remove('show'), 1500);
-
         setTimeout(() => { generateGoal(); }, 300); 
         return false; 
     }
@@ -287,6 +269,8 @@ function updateCell(cell, type) {
     else if (type === 'bomb') { cell.innerHTML = `<img src="${BOMB_SPRITE}">`; } 
     else if (type === 'super_bomb') { cell.innerHTML = `<img src="${SUPER_BOMB_SPRITE}">`; } 
     else if (type === 'rainbow') { cell.innerHTML = `<img src="${RAINBOW_SPRITE}">`; }
+    else if (type === 'rocket_h') { cell.innerHTML = `<img src="${ROCKET_SPRITE}" style="transform: rotate(0deg);">`; }
+    else if (type === 'rocket_v') { cell.innerHTML = `<img src="${ROCKET_SPRITE}" style="transform: rotate(90deg);">`; }
     else { cell.innerHTML = `<img src="${SPRITES[type]}">`; }
 }
 
@@ -318,7 +302,7 @@ function swapCells(r1, c1, r2, c2) {
     updateCell(document.getElementById('board').children[r1 * COLS + c1], board[r1][c1]);
     updateCell(document.getElementById('board').children[r2 * COLS + c2], board[r2][c2]);
     setTimeout(() => {
-        if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb' || board[r1][c1] === 'super_bomb' || board[r2][c2] === 'super_bomb' || board[r1][c1] === 'rainbow' || board[r2][c2] === 'rainbow') {
+        if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb' || board[r1][c1] === 'super_bomb' || board[r2][c2] === 'super_bomb' || board[r1][c1] === 'rainbow' || board[r2][c2] === 'rainbow' || board[r1][c1].includes('rocket') || board[r2][c2].includes('rocket')) {
             handleSpecialMove(r1, c1, r2, c2); 
         } else {
             let initialMatches = findMatches();
@@ -342,62 +326,75 @@ function handleSpecialMove(r1, c1, r2, c2) {
     let t1 = board[r1][c1], t2 = board[r2][c2];
     let cellsDestroyed = [];
     
-    if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
+    // Комбо ракет
+    if (t1.includes('rocket') && t2.includes('rocket')) {
+        if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
+        tg.showAlert("🚀 КРЕСТ!");
+        let sr = r1, sc = c1;
+        board[r1][c1] = null; board[r2][c2] = null;
+        // Уничтожаем ряд и колонку
+        for (let c = 0; c < COLS; c++) { cellsDestroyed.push({r: sr, c: c, type: board[sr][c]}); }
+        for (let r = 0; r < ROWS; r++) { cellsDestroyed.push({r: r, c: sc, type: board[r][sc]}); }
+        
+        let unique = new Set();
+        cellsDestroyed.forEach(cell => {
+            let key = `${cell.r},${cell.c}`;
+            if (!unique.has(key)) {
+                unique.add(key);
+                const el = document.getElementById('board').children[cell.r * COLS + cell.c];
+                el.classList.add('disappear'); setTimeout(() => { board[cell.r][cell.c] = null; updateCell(el, null); el.classList.remove('disappear'); }, 200);
+            }
+        });
+        setTimeout(() => { dropCells(true); }, 300);
+    }
+    // Бомба + Бомба
+    else if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ!");
-        
-        // Собираем радиус взрыва первой бомбы
         let rA = r1, cA = c1, radA = t1 === 'super_bomb' ? 2 : 1;
         for (let i = -radA; i <= radA; i++) for (let j = -radA; j <= radA; j++) {
             let nr = rA + i, nc = cA + j;
             if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
         }
-        // Собираем радиус взрыва второй бомбы
         let rB = r2, cB = c2, radB = t2 === 'super_bomb' ? 2 : 1;
         for (let i = -radB; i <= radB; i++) for (let j = -radB; j <= radB; j++) {
             let nr = rB + i, nc = cB + j;
             if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
         }
-        
         board[r1][c1] = null; board[r2][c2] = null;
-        
-        // Визуально уничтожаем клетки
-        let uniqueCells = new Set();
+        let unique = new Set();
         cellsDestroyed.forEach(cell => {
             let key = `${cell.r},${cell.c}`;
-            if (!uniqueCells.has(key)) {
-                uniqueCells.add(key);
+            if (!unique.has(key)) {
+                unique.add(key);
                 const el = document.getElementById('board').children[cell.r * COLS + cell.c];
-                el.classList.add('disappear'); 
-                setTimeout(() => { board[cell.r][cell.c] = null; updateCell(el, null); el.classList.remove('disappear'); }, 200);
+                el.classList.add('disappear'); setTimeout(() => { board[cell.r][cell.c] = null; updateCell(el, null); el.classList.remove('disappear'); }, 200);
             }
         });
-        
-        // Запускаем цепную реакцию
         setTimeout(() => { explodeBombs(true); }, 250);
-
-    } else if (t1 === 'rainbow' && t2 === 'rainbow') {
-        if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
-        tg.showAlert("🌈 АБСОЛЮТНАЯ ОЧИСТКА!");
-        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-            cellsDestroyed.push({r, c, type: board[r][c]}); const cell = document.getElementById('board').children[r * COLS + c];
-            cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-        }
-        setTimeout(() => { dropCells(true); }, 300);
-    } else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
-        if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
-        tg.showAlert("🌈💥 АБСОЛЮТНАЯ ОЧИСТКА!");
-        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-            cellsDestroyed.push({r, c, type: board[r][c]}); const cell = document.getElementById('board').children[r * COLS + c];
-            cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-        }
-        setTimeout(() => { dropCells(true); }, 300);
-    } else {
+    }
+    // Обычное использование
+    else {
         let specialType = null, sr = 0, sc = 0, targetType = null;
-        if (t1 === 'bomb' || t1 === 'super_bomb' || t1 === 'rainbow') { specialType = t1; sr = r1; sc = c1; targetType = t2; } 
+        if (t1.includes('rocket') || t1 === 'bomb' || t1 === 'super_bomb' || t1 === 'rainbow') { specialType = t1; sr = r1; sc = c1; targetType = t2; } 
         else { specialType = t2; sr = r2; sc = c2; targetType = t1; }
         
-        if (specialType === 'bomb' || specialType === 'super_bomb') {
+        if (specialType.includes('rocket')) {
+            if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
+            board[sr][sc] = null;
+            if (specialType === 'rocket_h') {
+                // Горизонтальная
+                for (let c = 0; c < COLS; c++) cellsDestroyed.push({r: sr, c: c, type: board[sr][c]});
+            } else {
+                // Вертикальная
+                for (let r = 0; r < ROWS; r++) cellsDestroyed.push({r: r, c: sc, type: board[r][sc]});
+            }
+            cellsDestroyed.forEach(cell => {
+                const el = document.getElementById('board').children[cell.r * COLS + cell.c];
+                el.classList.add('disappear'); setTimeout(() => { board[cell.r][cell.c] = null; updateCell(el, null); el.classList.remove('disappear'); }, 200);
+            });
+            setTimeout(() => { dropCells(true); }, 300);
+        } else if (specialType === 'bomb' || specialType === 'super_bomb') {
             if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
             board[sr][sc] = null; let radius = specialType === 'super_bomb' ? 2 : 1;
             for (let i = -radius; i <= radius; i++) for (let j = -radius; j <= radius; j++) {
@@ -427,50 +424,35 @@ function handleSpecialMove(r1, c1, r2, c2) {
 
 function explodeBombs(wasPlayerMove) { 
     let queue = [];
-    // Сначала собираем ВСЕ бомбы, которые сейчас есть на поле
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-        if (board[r][c] === 'bomb' || board[r][c] === 'super_bomb') { 
-            queue.push({r, c, type: board[r][c]}); 
-            board[r][c] = null; 
-        }
+        if (board[r][c] === 'bomb' || board[r][c] === 'super_bomb') { queue.push({r, c, type: board[r][c]}); board[r][c] = null; }
     }
-    
     if (queue.length > 0) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         while (queue.length > 0) {
-            let b = queue.shift();
-            let radius = b.type === 'super_bomb' ? 2 : 1;
+            let b = queue.shift(), radius = b.type === 'super_bomb' ? 2 : 1;
             for (let i = -radius; i <= radius; i++) for (let j = -radius; j <= radius; j++) {
                 let nr = b.r + i, nc = b.c + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                    // Если в зоне взрыва оказалась ЕЩЕ бомба, добавляем её в очередь!
-                    if (board[nr][nc] === 'bomb' || board[nr][nc] === 'super_bomb') { 
-                        queue.push({r: nr, c: nc, type: board[nr][nc]}); 
-                        board[nr][nc] = null; 
-                    }
+                    if (board[nr][nc] === 'bomb' || board[nr][nc] === 'super_bomb') { queue.push({r: nr, c: nc, type: board[nr][nc]}); board[nr][nc] = null; }
                     const cell = document.getElementById('board').children[nr * COLS + nc];
-                    cell.classList.add('disappear'); 
-                    setTimeout(() => { 
-                        if(board[nr][nc] !== null) { board[nr][nc] = null; updateCell(cell, null); } 
-                        cell.classList.remove('disappear'); 
-                    }, 200);
+                    cell.classList.add('disappear'); setTimeout(() => { if(board[nr][nc] !== null) { board[nr][nc] = null; updateCell(cell, null); } cell.classList.remove('disappear'); }, 200);
                 }
             }
         }
-        score += 100; updateScoreUI(); 
-        setTimeout(() => { dropCells(wasPlayerMove); }, 300); 
+        score += 100; updateScoreUI(); setTimeout(() => { dropCells(wasPlayerMove); }, 300); 
     } else { checkMatchesAfterDrop(wasPlayerMove); }
 }
 
 function findMatches() {
     let matched = new Set();
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS - 2; c++) {
-        if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
+        if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && !board[r][c].includes('rocket') && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
             matched.add(`${r},${c}`); matched.add(`${r},${c+1}`); matched.add(`${r},${c+2}`);
         }
     }
     for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS - 2; r++) {
-        if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
+        if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && !board[r][c].includes('rocket') && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
             matched.add(`${r},${c}`); matched.add(`${r+1},${c}`); matched.add(`${r+2},${c}`);
         }
     }
@@ -493,19 +475,34 @@ function processMatches(matched, isPlayerMove) {
     for (let r = 0; r < ROWS; r++) {
         let count = 1;
         for (let c = 1; c <= COLS; c++) {
-            if (c < COLS && board[r][c] !== null && board[r][c] === board[r][c-1] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb') count++;
-            else { if (count >= 3) { let line = []; for(let i=0; i<count; i++) line.push({r, c: c-1-i}); lines.push({cells: line, type: board[r][c-1], count}); } count = 1; }
+            if (c < COLS && board[r][c] !== null && board[r][c] === board[r][c-1] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && !board[r][c].includes('rocket')) count++;
+            else { if (count >= 3) { let line = []; for(let i=0; i<count; i++) line.push({r, c: c-1-i}); lines.push({cells: line, type: board[r][c-1], count, dir: 'h'}); } count = 1; }
         }
     }
     for (let c = 0; c < COLS; c++) {
         let count = 1;
         for (let r = 1; r <= ROWS; r++) {
-            if (r < ROWS && board[r][c] !== null && board[r][c] === board[r-1][c] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb') count++;
-            else { if (count >= 3) { let line = []; for(let i=0; i<count; i++) line.push({r: r-1-i, c}); lines.push({cells: line, type: board[r-1][c], count}); } count = 1; }
+            if (r < ROWS && board[r][c] !== null && board[r][c] === board[r-1][c] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && !board[r][c].includes('rocket')) count++;
+            else { if (count >= 3) { let line = []; for(let i=0; i<count; i++) line.push({r: r-1-i, c}); lines.push({cells: line, type: board[r-1][c], count, dir: 'v'}); } count = 1; }
         }
     }
     
     let spawns = [];
+    
+    // Проверка на КВАДРАТ 2x2 (Ракета)
+    for (let r = 0; r < ROWS - 1; r++) {
+        for (let c = 0; c < COLS - 1; c++) {
+            let type = board[r][c];
+            if (type !== null && type !== 'bomb' && type !== 'rainbow' && type !== 'super_bomb' && !type.includes('rocket')) {
+                if (board[r][c+1] === type && board[r+1][c] === type && board[r+1][c+1] === type) {
+                    let isHorizontal = Math.random() < 0.5;
+                    spawns.push({r: r, c: c, type: isHorizontal ? 'rocket_h' : 'rocket_v'});
+                }
+            }
+        }
+    }
+    
+    // Проверка на линии
     for (let i = 0; i < lines.length; i++) for (let j = 0; j < lines.length; j++) {
         if (i !== j && lines[i].type === lines[j].type) {
             let intersection = lines[i].cells.find(c1 => lines[j].cells.some(c2 => c1.r === c2.r && c1.c === c2.c));
@@ -515,7 +512,10 @@ function processMatches(matched, isPlayerMove) {
     
     lines.forEach(line => {
         if (line.processed) return;
-        if (line.count === 4) { let mid = line.cells[1]; spawns.push({r: mid.r, c: mid.c, type: 'bomb'}); } 
+        if (line.count === 4) { 
+            let mid = line.cells[1]; 
+            spawns.push({r: mid.r, c: mid.c, type: line.dir === 'h' ? 'rocket_h' : 'rocket_v'}); 
+        } 
         else if (line.count >= 5) { let mid = line.cells[2]; spawns.push({r: mid.r, c: mid.c, type: 'rainbow'}); }
     });
     
