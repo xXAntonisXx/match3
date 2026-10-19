@@ -52,7 +52,7 @@ function loadPlayerData() {
     sendToBot({ action: "get_data" });
 }
 
-//function showTop() {
+function showTop() {
     tg.showAlert("Чтобы увидеть общий рейтинг всех игроков, нажми кнопку '🏆 Топ игроков' в самом боте!");
 }
 
