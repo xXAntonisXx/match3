@@ -126,7 +126,6 @@ function checkGoalComplete() {
         currentLevel++; score += 500; playerCoins += 1; localStorage.setItem('match3_coins', playerCoins);
         sendToBot({ action: "endless_goal", reward: 1 });
         
-        // Показываем текст внутри игры (без showAlert, чтобы ПК не вылетал)
         const comboEl = document.getElementById('combo-text');
         comboEl.innerText = "ЦЕЛЬ ВЫПОЛНЕНА! +1 🪙";
         comboEl.classList.add('show');
@@ -293,46 +292,65 @@ function swapCells(r1, c1, r2, c2) {
 }
 
 function handleSpecialMove(r1, c1, r2, c2) {
-    let t1 = board[r1][c1], t2 = board[r2][c2], cellsDestroyed = [];
+    let t1 = board[r1][c1], t2 = board[r2][c2];
+    let cellsDestroyed = [];
+    
+    // 1. Бомба + Бомба = Двойной взрыв с эффектом домино
     if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ!");
-        let rA = r1, cA = c1, rB = r2, cB = c2;
-        board[rA][cA] = null; board[rB][cB] = null;
-        let radA = t1 === 'super_bomb' ? 2 : 1;
+        
+        let rA = r1, cA = c1, radA = t1 === 'super_bomb' ? 2 : 1;
+        board[rA][cA] = null;
         for (let i = -radA; i <= radA; i++) for (let j = -radA; j <= radA; j++) {
             let nr = rA + i, nc = cA + j;
             if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); const cell = document.getElementById('board').children[nr * COLS + nc];
+                cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); 
+                const cell = document.getElementById('board').children[nr * COLS + nc];
                 cell.classList.add('disappear'); setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
             }
         }
-        let radB = t2 === 'super_bomb' ? 2 : 1;
-        for (let i = -radB; i <= radB; i++) for (let j = -radB; j <= radB; j++) {
-            let nr = rB + i, nc = cB + j;
-            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); const cell = document.getElementById('board').children[nr * COLS + nc];
-                cell.classList.add('disappear'); setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+        
+        setTimeout(() => {
+            let rB = r2, cB = c2, radB = t2 === 'super_bomb' ? 2 : 1;
+            board[rB][cB] = null;
+            for (let i = -radB; i <= radB; i++) for (let j = -radB; j <= radB; j++) {
+                let nr = rB + i, nc = cB + j;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                    cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); 
+                    const cell = document.getElementById('board').children[nr * COLS + nc];
+                    cell.classList.add('disappear'); setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+                }
             }
-        }
-    } else if (t1 === 'rainbow' && t2 === 'rainbow') {
+            explodeBombs(true);
+        }, 250);
+    } 
+    // 2. Радуга + Радуга = Очистка всего поля
+    else if (t1 === 'rainbow' && t2 === 'rainbow') {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🌈 АБСОЛЮТНАЯ ОЧИСТКА!");
         for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
             cellsDestroyed.push({r, c, type: board[r][c]}); const cell = document.getElementById('board').children[r * COLS + c];
             cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
         }
-    } else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
+        setTimeout(() => { dropCells(true); }, 300);
+    }
+    // 3. Радуга + Бомба = Очистка всего поля
+    else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🌈💥 АБСОЛЮТНАЯ ОЧИСТКА!");
         for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
             cellsDestroyed.push({r, c, type: board[r][c]}); const cell = document.getElementById('board').children[r * COLS + c];
             cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
         }
-    } else {
+        setTimeout(() => { dropCells(true); }, 300);
+    }
+    // 4. Обычное использование спец-фишки
+    else {
         let specialType = null, sr = 0, sc = 0, targetType = null;
         if (t1 === 'bomb' || t1 === 'super_bomb' || t1 === 'rainbow') { specialType = t1; sr = r1; sc = c1; targetType = t2; } 
         else { specialType = t2; sr = r2; sc = c2; targetType = t1; }
+        
         if (specialType === 'bomb' || specialType === 'super_bomb') {
             if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
             board[sr][sc] = null; let radius = specialType === 'super_bomb' ? 2 : 1;
@@ -343,6 +361,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
                     cell.classList.add('disappear'); setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
                 }
             }
+            setTimeout(() => { explodeBombs(true); }, 250);
         } else if (specialType === 'rainbow') {
             if(soundPop) { soundPop.currentTime = 0; soundPop.play().catch(e => {}); }
             board[sr][sc] = null;
@@ -352,10 +371,12 @@ function handleSpecialMove(r1, c1, r2, c2) {
                     cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
                 }
             }
+            setTimeout(() => { dropCells(true); }, 300);
         }
     }
+    
     if (goalType === 'fruit') { cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; }); updateGoalUI(); checkGoalComplete(); }
-    score += cellsDestroyed.length * 10; updateScoreUI(); setTimeout(() => { dropCells(true); }, 300);
+    score += cellsDestroyed.length * 10; updateScoreUI(); 
 }
 
 function explodeBombs(wasPlayerMove) { 
