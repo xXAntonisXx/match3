@@ -563,12 +563,30 @@ function processMatches(matched, isPlayerMove) {
 function dropCells(wasPlayerMove) {
     for (let c = 0; c < COLS; c++) {
         let emptyRow = ROWS - 1;
+        // Сдвигаем фрукты вниз
         for (let r = ROWS - 1; r >= 0; r--) {
-            if (board[r][c] !== null) { if (r !== emptyRow) { board[emptyRow][c] = board[r][c]; board[r][c] = null; } emptyRow--; }
+            if (board[r][c] !== null) { 
+                if (r !== emptyRow) { 
+                    board[emptyRow][c] = board[r][c]; 
+                    board[r][c] = null; 
+                } 
+                emptyRow--; 
+            }
         }
-        for (let r = emptyRow; r >= 0; r--) { board[r][c] = Math.floor(Math.random() * TYPES); }
+        // Принудительно заполняем все пустые места сверху новыми фруктами
+        for (let r = emptyRow; r >= 0; r--) { 
+            board[r][c] = Math.floor(Math.random() * TYPES); 
+        }
     }
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { updateCell(document.getElementById('board').children[r * COLS + c], board[r][c]); }
+    
+    // Перерисовываем всё поле
+    for (let r = 0; r < ROWS; r++) { 
+        for (let c = 0; c < COLS; c++) { 
+            updateCell(document.getElementById('board').children[r * COLS + c], board[r][c]); 
+        } 
+    }
+    
+    // Запускаем проверку на совпадения
     setTimeout(() => { checkMatchesAfterDrop(wasPlayerMove); }, 200);
 }
 
