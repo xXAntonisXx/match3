@@ -45,6 +45,7 @@ document.getElementById('app').innerHTML = `
     <button class="menu-btn" onclick="startGame('vs')"><span>⚔️ Соревнование</span> <span>На время</span></button>
     <button class="menu-btn" style="background: #8e44ad; border-color: #8e44ad;" onclick="showTop()"><span>🏆 Топ игроков</span> <span>Рекорды</span></button>
     <button class="menu-btn" style="background: #e74c3c; border-color: #e74c3c;" onclick="getDailyBonus()"><span>🎁 Бонус</span> <span>Ежедневно</span></button>
+    <button class="menu-btn" style="background: #2ecc71; border-color: #2ecc71;" onclick="syncBalance()"><span>🔄 Обновить баланс</span> <span>Синхр.</span></button>
 </div>
 <div id="game-screen">
     <div id="level-goal"><div id="goal-text">Цель</div><div id="goal-progress">0 / 15</div></div>
@@ -138,6 +139,12 @@ function showTop() {
 function getDailyBonus() {
     let botUsername = "Match3Pro_bot"; // ВСТАВЬ СЮДА СВОЙ USERNAME БЕЗ @
     let url = `https://t.me/${botUsername}?start=daily`;
+    tg.openTelegramLink(url);
+}
+
+function syncBalance() {
+    let botUsername = "Match3Pro_bot"; // ВСТАВЬ СЮДА СВОЙ USERNAME БЕЗ @
+    let url = `https://t.me/${botUsername}?start=sync`;
     tg.openTelegramLink(url);
 }
 
