@@ -38,6 +38,7 @@ document.getElementById('app').innerHTML = `
     <button class="menu-btn" onclick="startGame('endless')"><span>♾️ Бесконечный</span> <span>Цели</span></button>
     <button class="menu-btn" onclick="startGame('survival')"><span>⏳ Выживание</span> <span>60 сек</span></button>
     <button class="menu-btn" onclick="startGame('vs')"><span>⚔️ Соревнование</span> <span>На время</span></button>
+    <button class="menu-btn" style="background: #8e44ad; border-color: #8e44ad;" onclick="showTop()"><span>🏆 Топ игроков</span> <span>Рекорды</span></button>
 </div>
 <div id="game-screen">
     <div id="level-goal"><div id="goal-text">Цель</div><div id="goal-progress">0 / 15</div></div>
@@ -122,17 +123,22 @@ function loadPlayerData() {
     document.getElementById('shop-coins').innerText = playerCoins;
 }
 
+// ПЕРЕХОД В БОТА ДЛЯ ТОПА
+function showTop() {
+    let botUsername = "Match3Pro_bot"; // ВСТАВЬ СЮДА СВОЙ USERNAME БЕЗ @
+    let url = `https://t.me/${botUsername}?start=top`;
+    tg.openTelegramLink(url);
+}
+
 function openShop() { document.getElementById('shop-coins').innerText = playerCoins; document.getElementById('shop-modal').style.display = 'flex'; }
 function closeShop() { document.getElementById('shop-modal').style.display = 'none'; }
 function openDonate() { document.getElementById('donate-modal').style.display = 'flex'; }
 function closeDonate() { document.getElementById('donate-modal').style.display = 'none'; }
 
-// НОВАЯ ФУНКЦИЯ ПОКУПКИ (ЧЕРЕЗ ССЫЛКУ)
+// ПЕРЕХОД В БОТА ДЛЯ ДОНАТА
 function buyStars(amount, stars) {
     let botUsername = "Match3Pro_bot"; // ВСТАВЬ СЮДА СВОЙ USERNAME БЕЗ @
     let url = `https://t.me/${botUsername}?start=pay_${amount}`;
-    
-    // Открываем ссылку в Telegram
     tg.openTelegramLink(url);
 }
 
@@ -244,7 +250,11 @@ function endGame(reason) {
     }
     document.getElementById('game-screen').style.display = 'none';
     document.getElementById('game-over').style.display = 'flex';
-    if (currentMode === 'vs') sendToBot({ action: "update_score", score: score });
+    
+    // ОТПРАВЛЯЕМ РЕКОРД В БОТА ПРИ ОКОНЧАНИИ СОРЕВНОВАНИЯ
+    if (currentMode === 'vs') {
+        sendToBot({ action: "update_score", score: score });
+    }
 }
 
 function updateScoreUI() { document.getElementById('score-display').innerText = `⭐ Очки: ${score}`; }
