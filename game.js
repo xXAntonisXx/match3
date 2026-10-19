@@ -1,9 +1,27 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
+// Блокируем закрытие свайпом на iOS и ПК
+document.addEventListener('touchmove', function(e) {
+    e.preventDefault();
+}, { passive: false });
+
 document.getElementById('app').innerHTML = `
 <style>
-    body { margin: 0; background: #1a1a2e; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; user-select: none; }
+    body { 
+        margin: 0; 
+        background: #1a1a2e; 
+        color: #fff; 
+        font-family: sans-serif; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        height: 100vh; 
+        overflow: hidden; 
+        user-select: none; 
+        overscroll-behavior: none; 
+        touch-action: none;
+    }
     #menu { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 20px; box-sizing: border-box; }
     h1 { font-size: 32px; margin-bottom: 10px; color: #4ecca3; text-align: center; }
     p { color: #aaa; margin-bottom: 30px; }
