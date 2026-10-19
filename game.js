@@ -249,16 +249,12 @@ function endGame(reason) {
     document.getElementById('game-screen').style.display = 'none';
     document.getElementById('game-over').style.display = 'flex';
     
-    // ПЕРЕХОД В БОТА ДЛЯ СОХРАНЕНИЯ РЕКОРДА (Работает на всех устройствах)
+    // ПЕРЕХОД В БОТА ДЛЯ СОХРАНЕНИЯ РЕКОРДА
     if (currentMode === 'vs') {
         let botUsername = "Match3Pro_bot"; // ВСТАВЬ СЮДА СВОЙ USERNAME БЕЗ @
         let url = `https://t.me/${botUsername}?start=record_${score}`;
-        
-        // Ждем 1 секунду, чтобы игрок увидел свой счет, и перекидываем в бота
-        tg.showAlert(`Твой результат: ${score} очков! Сейчас откроется чат с ботом для сохранения рекорда.`, () => {
-            tg.openTelegramLink(url);
-            setTimeout(() => exitToMenu(), 500);
-        });
+        tg.openTelegramLink(url);
+        setTimeout(() => exitToMenu(), 500);
     }
 }
 
