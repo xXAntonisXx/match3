@@ -123,7 +123,6 @@ function loadPlayerData() {
     document.getElementById('shop-coins').innerText = playerCoins;
 }
 
-// ПЕРЕХОД В БОТА ДЛЯ ТОПА
 function showTop() {
     let botUsername = "Match3Pro_bot"; // ВСТАВЬ СЮДА СВОЙ USERNAME БЕЗ @
     let url = `https://t.me/${botUsername}?start=top`;
@@ -135,7 +134,6 @@ function closeShop() { document.getElementById('shop-modal').style.display = 'no
 function openDonate() { document.getElementById('donate-modal').style.display = 'flex'; }
 function closeDonate() { document.getElementById('donate-modal').style.display = 'none'; }
 
-// ПЕРЕХОД В БОТА ДЛЯ ДОНАТА
 function buyStars(amount, stars) {
     let botUsername = "Match3Pro_bot"; // ВСТАВЬ СЮДА СВОЙ USERNAME БЕЗ @
     let url = `https://t.me/${botUsername}?start=pay_${amount}`;
@@ -251,9 +249,12 @@ function endGame(reason) {
     document.getElementById('game-screen').style.display = 'none';
     document.getElementById('game-over').style.display = 'flex';
     
-    // ОТПРАВЛЯЕМ РЕКОРД В БОТА ПРИ ОКОНЧАНИИ СОРЕВНОВАНИЯ
+    // ОТПРАВЛЯЕМ РЕКОРД В БОТА ПРИ ОКОНЧАНИИ СОРЕВНОВАНИЯ (С ОКНОМ ПОДТВЕРЖДЕНИЯ)
     if (currentMode === 'vs') {
-        sendToBot({ action: "update_score", score: score });
+        tg.showAlert(`Твой результат: ${score} очков! Отправляем в таблицу лидеров...`, () => {
+            sendToBot({ action: "update_score", score: score });
+            setTimeout(() => exitToMenu(), 100); 
+        });
     }
 }
 
