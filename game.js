@@ -300,7 +300,6 @@ function swapCells(r1, c1, r2, c2) {
     setTimeout(() => {
         let t1 = board[r1][c1];
         let t2 = board[r2][c2];
-        // Безопасная проверка на спец-фишку (убрали вызов .includes у чисел)
         let isSpecial1 = (t1 === 'bomb' || t1 === 'rainbow' || (typeof t1 === 'string' && t1.includes('rocket')));
         let isSpecial2 = (t2 === 'bomb' || t2 === 'rainbow' || (typeof t2 === 'string' && t2.includes('rocket')));
 
@@ -441,12 +440,24 @@ function explodeBombs(wasPlayerMove) {
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
                     if (board[nr][nc] === 'bomb') { queue.push({r: nr, c: nc, type: board[nr][nc]}); board[nr][nc] = null; }
                     const cell = document.getElementById('board').children[nr * COLS + nc];
-                    cell.classList.add('disappear'); setTimeout(() => { if(board[nr][nc] !== null) { board[nr][nc] = null; updateCell(cell, null); } cell.classList.remove('disappear'); }, 200);
+                    cell.classList.add('disappear'); 
+                    setTimeout(() => { 
+                        if(board[nr][nc] !== null) { 
+                            board[nr][nc] = null; 
+                            updateCell(cell, null); 
+                        } 
+                        cell.classList.remove('disappear'); 
+                    }, 200);
                 }
             }
         }
-        score += 100; updateScoreUI(); setTimeout(() => { dropCells(wasPlayerMove); }, 300); 
-    } else { checkMatchesAfterDrop(wasPlayerMove); }
+        score += 100; 
+        updateScoreUI(); 
+        // УВЕЛИЧЕНА ЗАДЕРЖКА (400мс), ЧТОБЫ БОМБЫ УСПЕЛИ ИСЧЕЗНУТЬ
+        setTimeout(() => { dropCells(wasPlayerMove); }, 400); 
+    } else { 
+        checkMatchesAfterDrop(wasPlayerMove); 
+    }
 }
 
 function findMatches() {
