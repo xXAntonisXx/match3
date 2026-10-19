@@ -55,7 +55,6 @@ function loadPlayerData() {
     sendToBot({ action: "get_data" });
 }
  
-// ПОДСКАЗКА ПРО ТОП
 function showTop() {
     tg.showAlert("Чтобы увидеть рейтинг всех игроков, нажми кнопку '🏆 Топ игроков' в самом боте или напиши ему команду /top!");
 }
@@ -205,7 +204,11 @@ function endGame(reason) {
     }
  
     gameScreen.style.display = 'none'; gameOverScreen.style.display = 'flex';
-    if (currentMode === 'vs') sendToBot({ action: "update_score", score: score });
+ 
+    // ОТПРАВЛЯЕМ РЕКОРД В БОТ (ТОЛЬКО ДЛЯ СОРЕВНОВАНИЯ)
+    if (currentMode === 'vs') {
+        sendToBot({ action: "update_score", score: score });
+    }
 }
  
 function updateScoreUI() { scoreEl.innerText = `⭐ Очки: ${score}`; }
@@ -591,6 +594,7 @@ function dropCells(wasPlayerMove) {
                 emptyRow--;
             }
         }
+        // Принудительно заполняем пустые места
         for (let r = emptyRow; r >= 0; r--) {
             board[r][c] = Math.floor(Math.random() * TYPES);
         }
