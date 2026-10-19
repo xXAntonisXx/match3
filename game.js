@@ -9,9 +9,6 @@ const BOMB_SPRITE = 'bomb.png';
 const SUPER_BOMB_SPRITE = 'super_bomb.png'; 
 const RAINBOW_SPRITE = 'rainbow.png'; 
 
-const soundPop = new Audio('pop.mp3');
-const soundBoom = new Audio('boom.mp3');
-
 let board = [];
 let score = 0;
 let currentMode = 'classic';
