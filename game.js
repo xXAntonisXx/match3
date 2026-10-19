@@ -71,13 +71,13 @@ document.getElementById('app').innerHTML = `
 
 <div id="donate-modal">
     <h2 style="color: #f39c12;">Покупка монет</h2>
-    <div class="shop-item" onclick="buyStars(500, 50)">
+    <div class="shop-item" onclick="buyStars(500, 10)">
         <span>🪙 500 монет</span>
-        <span style="color: #f39c12; font-weight: bold;">50 ⭐</span>
+        <span style="color: #f39c12; font-weight: bold;">10 ⭐</span>
     </div>
-    <div class="shop-item" onclick="buyStars(1500, 130)">
+    <div class="shop-item" onclick="buyStars(1500, 25)">
         <span>🪙 1500 монет</span>
-        <span style="color: #f39c12; font-weight: bold;">130 ⭐</span>
+        <span style="color: #f39c12; font-weight: bold;">25 ⭐</span>
     </div>
     <button class="menu-btn" style="margin-top: 20px; justify-content: center;" onclick="closeDonate()">Назад</button>
 </div>
@@ -127,12 +127,10 @@ function closeShop() { document.getElementById('shop-modal').style.display = 'no
 function openDonate() { document.getElementById('donate-modal').style.display = 'flex'; }
 function closeDonate() { document.getElementById('donate-modal').style.display = 'none'; }
 
-// ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОКУПКИ
+// ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОКУПКИ (БЕЗ SHOWALERT)
 function buyStars(amount, stars) {
     tg.sendData(JSON.stringify({ action: "add_coins", amount: amount, stars: stars }));
-    tg.showAlert("Счет на оплату отправлен в чат с ботом! Оплати его, и монеты зачислятся.", () => {
-        tg.close(); // Принудительно закрываем окно, чтобы данные точно ушли
-    });
+    tg.close(); 
 }
 
 function buyItem(type, cost) {
