@@ -24,12 +24,6 @@ document.getElementById('app').innerHTML = `
     .btn-menu { width: 90%; max-width: 400px; margin-top: 10px; background: #e94560; border: none; padding: 12px; font-weight: bold; }
     .btn-shop { width: 90%; max-width: 400px; margin-top: 10px; background: #f39c12; border: none; color: #1a1a2e; padding: 12px; font-weight: bold; }
 
-    #shop-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
-    .shop-item { background: rgba(255,255,255,0.1); border: 1px solid #4ecca3; padding: 15px; margin: 10px; border-radius: 10px; width: 80%; max-width: 300px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
-    .shop-item:hover { background: rgba(255,255,255,0.2); }
-
-    #donate-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 300; flex-direction: column; align-items: center; justify-content: center; }
-
     #game-over { display: none; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10; }
     #combo-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 30px; font-weight: bold; color: #ffcc00; text-shadow: 0 0 10px #ff0000; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 100; text-align: center; width: 80%; }
     #combo-text.show { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
@@ -52,39 +46,8 @@ document.getElementById('app').innerHTML = `
         <button class="action btn-hammer" onclick="useBooster('hammer')">🔨 Молоток (<span id="hammer-count">0</span>)</button>
         <button class="action btn-shuffle" onclick="useBooster('shuffle')">🔄 Микс (<span id="shuffle-count">0</span>)</button>
     </div>
-    <button class="action btn-shop" onclick="openShop()">💎 Магазин</button>
+    <button class="action btn-shop" onclick="openShopInBot()">💎 Магазин (в боте)</button>
     <button class="action btn-menu" onclick="exitToMenu()">⬅️ В меню</button>
-</div>
-
-<div id="shop-modal">
-    <h2 style="color: #f39c12;">Магазин</h2>
-    <p>Твои монеты: <span id="shop-coins">100</span></p>
-    <div class="shop-item" onclick="buyItem('hammer', 50)">
-        <span>🔨 Молоток (3х3)</span>
-        <span style="color: #4ecca3; font-weight: bold;">50 🪙</span>
-    </div>
-    <div class="shop-item" onclick="buyItem('shuffle', 30)">
-        <span>🔄 Перемешать поле</span>
-        <span style="color: #4ecca3; font-weight: bold;">30 🪙</span>
-    </div>
-    <div class="shop-item" style="background: rgba(243, 156, 18, 0.2); border-color: #f39c12;" onclick="openDonate()">
-        <span>⭐ Купить монеты за Stars</span>
-        <span style="color: #f39c12; font-weight: bold;">Донат</span>
-    </div>
-    <button class="menu-btn" style="margin-top: 20px; justify-content: center;" onclick="closeShop()">Закрыть</button>
-</div>
-
-<div id="donate-modal">
-    <h2 style="color: #f39c12;">Покупка монет</h2>
-    <div class="shop-item" onclick="buyStars(500, 10)">
-        <span>🪙 500 монет</span>
-        <span style="color: #f39c12; font-weight: bold;">10 ⭐</span>
-    </div>
-    <div class="shop-item" onclick="buyStars(1500, 25)">
-        <span>🪙 1500 монет</span>
-        <span style="color: #f39c12; font-weight: bold;">25 ⭐</span>
-    </div>
-    <button class="menu-btn" style="margin-top: 20px; justify-content: center;" onclick="closeDonate()">Назад</button>
 </div>
 
 <div id="combo-text"></div>
@@ -118,33 +81,9 @@ let playerCoins = 100, playerHammers = 0, playerShuffles = 0, currentLevel = 1;
 let goalType = null, goalTarget = 0, goalProgress = 0, goalFruitIndex = 0, isHammerMode = false;
 let touchStartX = 0, touchStartY = 0, touchStartRow = null, touchStartCol = null;
 
-function sendToBot(data) { tg.sendData(JSON.stringify(data)); }
 function loadPlayerData() {
-    let savedCoins = localStorage.getItem('match3_coins');
-    if (savedCoins !== null) playerCoins = parseInt(savedCoins);
-    
-    let addCoins = null;
-    try {
-        const urlParams = new URLSearchParams(window.location.search);
-        addCoins = urlParams.get('add');
-    } catch (e) {
-        const match = window.location.search.match(/[?&]add=(\d+)/);
-        if (match) addCoins = match[1];
-    }
-
-    if (addCoins && !isNaN(addCoins)) {
-        let newCoins = parseInt(addCoins);
-        playerCoins += newCoins;
-        localStorage.setItem('match3_coins', playerCoins);
-        if (window.history && window.history.replaceState) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
-        setTimeout(() => { tg.showAlert(`🎉 Тебе начислено ${newCoins} монет!\nТеперь у тебя ${playerCoins} монет.`); }, 500);
-    }
-
     document.getElementById('hammer-count').innerText = playerHammers;
     document.getElementById('shuffle-count').innerText = playerShuffles;
-    document.getElementById('shop-coins').innerText = playerCoins;
 }
 
 function showTop() {
@@ -159,31 +98,10 @@ function getDailyBonus() {
     tg.openTelegramLink(url);
 }
 
-function openShop() { document.getElementById('shop-coins').innerText = playerCoins; document.getElementById('shop-modal').style.display = 'flex'; }
-function closeShop() { document.getElementById('shop-modal').style.display = 'none'; }
-function openDonate() { document.getElementById('donate-modal').style.display = 'flex'; }
-function closeDonate() { document.getElementById('donate-modal').style.display = 'none'; }
-
-function buyStars(amount, stars) {
+function openShopInBot() {
     let botUsername = "Match3Pro_bot"; // ВСТАВЬ СЮДА СВОЙ USERNAME БЕЗ @
-    let url = `https://t.me/${botUsername}?start=pay_${amount}`;
+    let url = `https://t.me/${botUsername}?start=shop`;
     tg.openTelegramLink(url);
-}
-
-function buyItem(type, cost) {
-    if (playerCoins >= cost) {
-        playerCoins -= cost; localStorage.setItem('match3_coins', playerCoins);
-        document.getElementById('shop-coins').innerText = playerCoins;
-        if (type === 'hammer') { playerHammers++; document.getElementById('hammer-count').innerText = playerHammers; sendToBot({ action: "buy_booster", booster: "hammer", cost: cost }); } 
-        else if (type === 'shuffle') { playerShuffles++; document.getElementById('shuffle-count').innerText = playerShuffles; sendToBot({ action: "buy_booster", booster: "shuffle", cost: cost }); }
-        const comboEl = document.getElementById('combo-text');
-        comboEl.innerText = "КУПЛЕНО!"; comboEl.classList.add('show');
-        setTimeout(() => comboEl.classList.remove('show'), 1000);
-    } else {
-        const comboEl = document.getElementById('combo-text');
-        comboEl.innerText = "НЕДОСТАТОЧНО МОНЕТ!"; comboEl.classList.add('show');
-        setTimeout(() => comboEl.classList.remove('show'), 1000);
-    }
 }
 
 function startGame(mode) {
@@ -197,7 +115,6 @@ function startGame(mode) {
         document.getElementById('goal-display').innerText = mode === 'classic' ? `Ходы: ${movesLeft}` : `Ходы: ∞`;
         generateGoal();
     } else {
-        // ТЕПЕРЬ И В СОРЕВНОВАНИИ, И В ВЫЖИВАНИИ ПО 60 СЕКУНД
         timeLeft = 60;
         document.getElementById('goal-display').innerText = `⏳: ${timeLeft}с`;
         document.getElementById('goal-text').innerText = "Цель: Продержись!";
@@ -228,7 +145,7 @@ function checkGoalComplete() {
     if (currentMode === 'classic' && ((goalType === 'score' && score >= goalTarget) || (goalType === 'fruit' && goalProgress >= goalTarget))) {
         endGame("🎉 Уровень пройден!"); return true;
     } else if (currentMode === 'endless' && goalType === 'fruit' && goalProgress >= goalTarget) {
-        currentLevel++; score += 500; playerCoins += 1; localStorage.setItem('match3_coins', playerCoins);
+        currentLevel++; score += 500;
         sendToBot({ action: "endless_goal", reward: 1 });
         
         const comboEl = document.getElementById('combo-text');
@@ -245,10 +162,10 @@ function useBooster(type) {
     if (isAnimating || isGameOver) return;
     if (type === 'hammer') {
         if (playerHammers > 0) { isHammerMode = !isHammerMode; tg.showAlert(isHammerMode ? "Молоток ВКЛ" : "Молоток ВЫКЛ"); }
-        else tg.showAlert("Нет молотков!");
+        else tg.showAlert("Нет молотков! Купи в боте.");
     } else if (type === 'shuffle') {
         if (playerShuffles > 0) { playerShuffles--; document.getElementById('shuffle-count').innerText = playerShuffles; createBoard(); sendToBot({ action: "spend_booster", booster: "shuffle" }); }
-        else tg.showAlert("Нет перемешиваний!");
+        else tg.showAlert("Нет перемешиваний! Купи в боте.");
     }
 }
 
@@ -272,10 +189,10 @@ function exitToMenu() {
 function endGame(reason) {
     if (isGameOver) return; isGameOver = true; if (gameInterval) clearInterval(gameInterval);
     if (currentMode === 'classic' && reason === "🎉 Уровень пройден!") {
-        currentLevel++; playerCoins += 5; localStorage.setItem('match3_coins', playerCoins);
+        currentLevel++;
         sendToBot({ action: "level_complete", level: currentLevel, reward: 5 });
         document.getElementById('go-title').innerText = reason;
-        document.getElementById('go-score').innerText = `Очки: ${score}\n💰 +5 монет!`;
+        document.getElementById('go-score').innerText = `Очки: ${score}\n💰 +5 монет (зачислены в боте)`;
     } else {
         document.getElementById('go-title').innerText = reason;
         document.getElementById('go-score').innerText = `Очки: ${score}`;
@@ -332,7 +249,6 @@ function handleHammer(r, c) {
     }
     if (goalType === 'fruit') { cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; }); updateGoalUI(); checkGoalComplete(); }
     
-    // ДОБАВЛЯЕМ СЕКУНДУ В РЕЖИМЕ ВЫЖИВАНИЯ
     if (currentMode === 'survival') { timeLeft += 1; }
 
     setTimeout(() => { 
