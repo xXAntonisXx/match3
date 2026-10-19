@@ -71,14 +71,7 @@ document.getElementById('app').innerHTML = `
 
 <div id="donate-modal">
     <h2 style="color: #f39c12;">Покупка монет</h2>
-    <div class="shop-item" onclick="buyStars(500, 10)">
-        <span>🪙 500 монет</span>
-        <span style="color: #f39c12; font-weight: bold;">10 ⭐</span>
-    </div>
-    <div class="shop-item" onclick="buyStars(1500, 25)">
-        <span>🪙 1500 монет</span>
-        <span style="color: #f39c12; font-weight: bold;">25 ⭐</span>
-    </div>
+    <p style="text-align: center; font-size: 14px; padding: 0 20px;">Нажми на синюю кнопку <b>внизу экрана</b>, чтобы купить 500 монет за 10 звезд!</p>
     <button class="menu-btn" style="margin-top: 20px; justify-content: center;" onclick="closeDonate()">Назад</button>
 </div>
 
@@ -124,18 +117,21 @@ function loadPlayerData() {
 
 function openShop() { document.getElementById('shop-coins').innerText = playerCoins; document.getElementById('shop-modal').style.display = 'flex'; }
 function closeShop() { document.getElementById('shop-modal').style.display = 'none'; }
-function openDonate() { document.getElementById('donate-modal').style.display = 'flex'; }
-function closeDonate() { document.getElementById('donate-modal').style.display = 'none'; }
 
-// ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОКУПКИ (БЕЗ SHOWALERT)
-function buyStars(amount, stars) {
-    // Отправляем данные без showAlert
-    tg.sendData(JSON.stringify({ action: "add_coins", amount: amount, stars: stars }));
+function openDonate() { 
+    document.getElementById('donate-modal').style.display = 'flex'; 
+    tg.MainButton.setText("КУПИТЬ 500 МОНЕТ ЗА 10 ⭐");
+    tg.MainButton.color = "#f39c12";
+    tg.MainButton.show();
     
-    // Принудительно закрываем игру, чтобы данные точно ушли
-    setTimeout(() => {
-        tg.close();
-    }, 100);
+    tg.MainButton.onClick(() => {
+        tg.sendData(JSON.stringify({ action: "add_coins", amount: 500, stars: 10 }));
+    });
+}
+
+function closeDonate() { 
+    document.getElementById('donate-modal').style.display = 'none'; 
+    tg.MainButton.hide(); 
 }
 
 function buyItem(type, cost) {
