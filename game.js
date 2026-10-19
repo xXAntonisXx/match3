@@ -245,7 +245,6 @@ function handleHammer(r, c) {
     if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
     let cellsDestroyed = [];
     
-    // Молоток 3х3
     for (let i = -1; i <= 1; i++) {
         for (let j = -1; j <= 1; j++) {
             let nr = r + i, nc = c + j;
@@ -327,7 +326,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
     let t1 = board[r1][c1], t2 = board[r2][c2];
     let cellsDestroyed = [];
     
-    // Ракета + Ракета = Крест
     if (typeof t1 === 'string' && t1.includes('rocket') && typeof t2 === 'string' && t2.includes('rocket')) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🚀 КРЕСТ!");
@@ -347,7 +345,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
         });
         setTimeout(() => { dropCells(true); }, 300);
     }
-    // Бомба + Бомба = Двойной взрыв 5х5
     else if (t1 === 'bomb' && t2 === 'bomb') {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ 5х5!");
@@ -399,7 +396,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
         } else if (specialType === 'bomb') {
             if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
             board[sr][sc] = null; 
-            // Взрыв бомбы 5х5
             for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
                 let nr = sr + i, nc = sc + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
@@ -427,34 +423,59 @@ function handleSpecialMove(r1, c1, r2, c2) {
 
 function explodeBombs(wasPlayerMove) { 
     let queue = [];
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-        if (board[r][c] === 'bomb') { queue.push({r, c, type: board[r][c]}); board[r][c] = null; }
+    let unique = new Set(); // Чтобы не взрывать одну и ту же клетку дважды
+
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (board[r][c] === 'bomb') { 
+                queue.push({r, c, type: board[r][c]}); 
+            }
+        }
     }
+
     if (queue.length > 0) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
+        
         while (queue.length > 0) {
             let b = queue.shift();
-            // Цепная реакция бомб 5х5
-            for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
-                let nr = b.r + i, nc = b.c + j;
-                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                    if (board[nr][nc] === 'bomb') { queue.push({r: nr, c: nc, type: board[nr][nc]}); board[nr][nc] = null; }
-                    const cell = document.getElementById('board').children[nr * COLS + nc];
-                    cell.classList.add('disappear'); 
-                    setTimeout(() => { 
-                        if(board[nr][nc] !== null) { 
-                            board[nr][nc] = null; 
-                            updateCell(cell, null); 
-                        } 
-                        cell.classList.remove('disappear'); 
-                    }, 200);
+            
+            // Взрываем 5х5
+            for (let i = -2; i <= 2; i++) {
+                for (let j = -2; j <= 2; j++) {
+                    let nr = b.r + i, nc = b.c + j;
+                    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                        let key = `${nr},${nc}`;
+                        if (!unique.has(key)) {
+                            unique.add(key);
+                            // Если нашли еще одну бомбу - добавляем в очередь на взрыв
+                            if (board[nr][nc] === 'bomb') {
+                                queue.push({r: nr, c: nc, type: 'bomb'});
+                            }
+                            // МГНОВЕННО очищаем массив
+                            board[nr][nc] = null;
+                            
+                            // Анимация
+                            const cell = document.getElementById('board').children[nr * COLS + nc];
+                            cell.classList.add('disappear'); 
+                            setTimeout(() => { cell.classList.remove('disappear'); }, 200);
+                        }
+                    }
                 }
             }
         }
+        
+        // Отрисовываем пустые клетки
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                updateCell(document.getElementById('board').children[r * COLS + c], board[r][c]);
+            }
+        }
+
         score += 100; 
         updateScoreUI(); 
-        // УВЕЛИЧЕНА ЗАДЕРЖКА (400мс), ЧТОБЫ БОМБЫ УСПЕЛИ ИСЧЕЗНУТЬ
-        setTimeout(() => { dropCells(wasPlayerMove); }, 400); 
+        
+        // Теперь, когда массив board полностью обновлен, запускаем падение
+        setTimeout(() => { dropCells(wasPlayerMove); }, 250); 
     } else { 
         checkMatchesAfterDrop(wasPlayerMove); 
     }
