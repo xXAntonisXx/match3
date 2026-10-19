@@ -53,7 +53,7 @@ document.getElementById('app').innerHTML = `
     <h2 style="color: #f39c12;">Магазин</h2>
     <p>Твои монеты: <span id="shop-coins">100</span></p>
     <div class="shop-item" onclick="buyItem('hammer', 50)">
-        <span>🔨 Молоток (разбить 3х3)</span>
+        <span>🔨 Молоток (3х3)</span>
         <span style="color: #4ecca3; font-weight: bold;">50 🪙</span>
     </div>
     <div class="shop-item" onclick="buyItem('shuffle', 30)">
@@ -245,7 +245,7 @@ function handleHammer(r, c) {
     if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
     let cellsDestroyed = [];
     
-    // Молоток снова бьет 3х3 (радиус 1)
+    // Молоток 3х3
     for (let i = -1; i <= 1; i++) {
         for (let j = -1; j <= 1; j++) {
             let nr = r + i, nc = c + j;
@@ -298,7 +298,6 @@ function swapCells(r1, c1, r2, c2) {
     updateCell(document.getElementById('board').children[r1 * COLS + c1], board[r1][c1]);
     updateCell(document.getElementById('board').children[r2 * COLS + c2], board[r2][c2]);
     setTimeout(() => {
-        // Проверка на спец-фишки с учетом типа данных
         let isSpecial1 = typeof board[r1][c1] === 'string' && (board[r1][c1].includes('rocket') || board[r1][c1] === 'bomb' || board[r1][c1] === 'rainbow');
         let isSpecial2 = typeof board[r2][c2] === 'string' && (board[r2][c2].includes('rocket') || board[r2][c2] === 'bomb' || board[r2][c2] === 'rainbow');
 
@@ -326,7 +325,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
     let t1 = board[r1][c1], t2 = board[r2][c2];
     let cellsDestroyed = [];
     
-    // Ракета + Ракета = Крест
     if (typeof t1 === 'string' && t1.includes('rocket') && typeof t2 === 'string' && t2.includes('rocket')) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🚀 КРЕСТ!");
@@ -346,7 +344,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
         });
         setTimeout(() => { dropCells(true); }, 300);
     }
-    // Бомба + Бомба = Двойной взрыв 5х5
     else if (t1 === 'bomb' && t2 === 'bomb') {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ 5х5!");
@@ -398,7 +395,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
         } else if (specialType === 'bomb') {
             if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
             board[sr][sc] = null; 
-            // Взрыв бомбы 5х5
             for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
                 let nr = sr + i, nc = sc + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
@@ -433,7 +429,6 @@ function explodeBombs(wasPlayerMove) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         while (queue.length > 0) {
             let b = queue.shift();
-            // Цепная реакция бомб 5х5
             for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
                 let nr = b.r + i, nc = b.c + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
@@ -492,7 +487,6 @@ function processMatches(matched, isPlayerMove) {
     
     let spawns = [];
     
-    // Проверка на перекрестие (Г-образно) = Бомба
     for (let i = 0; i < lines.length; i++) for (let j = 0; j < lines.length; j++) {
         if (i !== j && lines[i].type === lines[j].type) {
             let intersection = lines[i].cells.find(c1 => lines[j].cells.some(c2 => c1.r === c2.r && c1.c === c2.c));
@@ -500,7 +494,6 @@ function processMatches(matched, isPlayerMove) {
         }
     }
     
-    // Проверка на линии 4 и 5
     lines.forEach(line => {
         if (line.processed) return;
         if (line.count === 4) { 
