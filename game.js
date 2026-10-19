@@ -391,6 +391,16 @@ function findMatches() {
 function processMatches(matched, isPlayerMove) {
     if(soundPop) { soundPop.currentTime = 0; soundPop.play().catch(e => {}); }
     if (!isPlayerMove) { comboCount++; if (comboCount > 1) { score += 50 * comboCount; } } else { comboCount = 0; }
+    
+    // СНАЧАЛА ЗАСЧИТЫВАЕМ ЦЕЛЬ ЗА ВСЕ СОБРАННЫЕ ФРУКТЫ (включая те, что станут бомбами)
+    if (goalType === 'fruit') {
+        matched.forEach(pos => { 
+            const [r, c] = pos.split(',').map(Number); 
+            if (board[r][c] === goalFruitIndex) goalProgress++; 
+        });
+        updateGoalUI(); 
+    }
+
     let lines = [];
     for (let r = 0; r < ROWS; r++) {
         let count = 1;
@@ -406,6 +416,7 @@ function processMatches(matched, isPlayerMove) {
             else { if (count >= 3) { let line = []; for(let i=0; i<count; i++) line.push({r: r-1-i, c}); lines.push({cells: line, type: board[r-1][c], count}); } count = 1; }
         }
     }
+    
     let spawns = [];
     for (let i = 0; i < lines.length; i++) for (let j = 0; j < lines.length; j++) {
         if (i !== j && lines[i].type === lines[j].type) {
@@ -413,21 +424,28 @@ function processMatches(matched, isPlayerMove) {
             if (intersection) { spawns.push({r: intersection.r, c: intersection.c, type: 'super_bomb'}); lines[i].processed = true; lines[j].processed = true; }
         }
     }
+    
     lines.forEach(line => {
         if (line.processed) return;
         if (line.count === 4) { let mid = line.cells[1]; spawns.push({r: mid.r, c: mid.c, type: 'bomb'}); } 
         else if (line.count >= 5) { let mid = line.cells[2]; spawns.push({r: mid.r, c: mid.c, type: 'rainbow'}); }
     });
+    
     matched.forEach(pos => {
         const [r, c] = pos.split(',').map(Number);
         if (!spawns.find(s => s.r === r && s.c === c)) {
             const cell = document.getElementById('board').children[r * COLS + c];
-            cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+            cell.classList.add('disappear'); 
+            setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
         }
     });
+    
     spawns.forEach(s => { board[s.r][s.c] = s.type; updateCell(document.getElementById('board').children[s.r * COLS + s.c], s.type); });
-    if (goalType === 'fruit') { matched.forEach(pos => { const [r, c] = pos.split(',').map(Number); if (board[r][c] === goalFruitIndex) goalProgress++; }); updateGoalUI(); checkGoalComplete(); }
+    
+    checkGoalComplete();
+
     let points = matched.size * 10; score += points; updateScoreUI(); if (goalType === 'score') updateGoalUI();
+    
     setTimeout(() => { dropCells(isPlayerMove); }, 250); 
 }
 
