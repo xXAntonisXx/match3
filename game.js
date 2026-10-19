@@ -250,14 +250,18 @@ function handleHammer(r, c) {
             let nr = r + i, nc = c + j;
             if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
                 cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
+                board[nr][nc] = null;
                 const cell = document.getElementById('board').children[nr * COLS + nc];
                 cell.classList.add('disappear');
-                setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
             }
         }
     }
     if (goalType === 'fruit') { cellsDestroyed.forEach(cd => { if (cd.type === goalFruitIndex) goalProgress++; }); updateGoalUI(); checkGoalComplete(); }
-    setTimeout(() => { dropCells(true); }, 250);
+    
+    setTimeout(() => { 
+        document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear'));
+        dropCells(true); 
+    }, 200);
 }
 
 function updateCell(cell, type) {
@@ -339,15 +343,16 @@ function handleSpecialMove(r1, c1, r2, c2) {
             let key = `${cell.r},${cell.c}`;
             if (!unique.has(key)) {
                 unique.add(key);
+                board[cell.r][cell.c] = null;
                 const el = document.getElementById('board').children[cell.r * COLS + cell.c];
-                el.classList.add('disappear'); setTimeout(() => { board[cell.r][cell.c] = null; updateCell(el, null); el.classList.remove('disappear'); }, 200);
+                el.classList.add('disappear'); 
             }
         });
-        setTimeout(() => { dropCells(true); }, 300);
+        setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(true); }, 200);
     }
     else if (t1 === 'bomb' && t2 === 'bomb') {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
-        tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ 3х3!");
+        tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ!");
         
         let unique = new Set();
         let addToDestroy = (centerR, centerC) => {
@@ -370,10 +375,11 @@ function handleSpecialMove(r1, c1, r2, c2) {
         board[r1][c1] = null; board[r2][c2] = null;
         
         cellsDestroyed.forEach(cell => {
+            board[cell.r][cell.c] = null;
             const el = document.getElementById('board').children[cell.r * COLS + cell.c];
-            el.classList.add('disappear'); setTimeout(() => { board[cell.r][cell.c] = null; updateCell(el, null); el.classList.remove('disappear'); }, 200);
+            el.classList.add('disappear'); 
         });
-        setTimeout(() => { explodeBombs(true); }, 250);
+        setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(true); }, 200);
     }
     else {
         let specialType = null, sr = 0, sc = 0, targetType = null;
@@ -389,31 +395,36 @@ function handleSpecialMove(r1, c1, r2, c2) {
                 for (let r = 0; r < ROWS; r++) cellsDestroyed.push({r: r, c: sc, type: board[r][sc]});
             }
             cellsDestroyed.forEach(cell => {
+                board[cell.r][cell.c] = null;
                 const el = document.getElementById('board').children[cell.r * COLS + cell.c];
-                el.classList.add('disappear'); setTimeout(() => { board[cell.r][cell.c] = null; updateCell(el, null); el.classList.remove('disappear'); }, 200);
+                el.classList.add('disappear'); 
             });
-            setTimeout(() => { dropCells(true); }, 300);
+            setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(true); }, 200);
         } else if (specialType === 'bomb') {
             if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
             board[sr][sc] = null; 
             for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
                 let nr = sr + i, nc = sc + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                    cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); const cell = document.getElementById('board').children[nr * COLS + nc];
-                    cell.classList.add('disappear'); setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+                    cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); 
+                    board[nr][nc] = null;
+                    const cell = document.getElementById('board').children[nr * COLS + nc];
+                    cell.classList.add('disappear'); 
                 }
             }
-            setTimeout(() => { explodeBombs(true); }, 250);
+            setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(true); }, 200);
         } else if (specialType === 'rainbow') {
             if(soundPop) { soundPop.currentTime = 0; soundPop.play().catch(e => {}); }
             board[sr][sc] = null;
             for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
                 if (board[r][c] === targetType) {
-                    cellsDestroyed.push({r, c, type: board[r][c]}); const cell = document.getElementById('board').children[r * COLS + c];
-                    cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
+                    cellsDestroyed.push({r, c, type: board[r][c]}); 
+                    board[r][c] = null;
+                    const cell = document.getElementById('board').children[r * COLS + c];
+                    cell.classList.add('disappear'); 
                 }
             }
-            setTimeout(() => { dropCells(true); }, 300);
+            setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(true); }, 200);
         }
     }
     
@@ -421,7 +432,49 @@ function handleSpecialMove(r1, c1, r2, c2) {
     score += cellsDestroyed.length * 10; updateScoreUI(); 
 }
 
+function explodeBombs(wasPlayerMove) { 
+    let queue = [];
+    let unique = new Set();
 
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (board[r][c] === 'bomb') { 
+                queue.push({r, c, type: board[r][c]}); 
+            }
+        }
+    }
+
+    if (queue.length > 0) {
+        if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
+        
+        while (queue.length > 0) {
+            let b = queue.shift();
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
+                    let nr = b.r + i, nc = b.c + j;
+                    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                        let key = `${nr},${nc}`;
+                        if (!unique.has(key)) {
+                            unique.add(key);
+                            if (board[nr][nc] === 'bomb') {
+                                queue.push({r: nr, c: nc, type: 'bomb'});
+                            }
+                            board[nr][nc] = null;
+                            const cell = document.getElementById('board').children[nr * COLS + nc];
+                            cell.classList.add('disappear'); 
+                        }
+                    }
+                }
+            }
+        }
+        
+        score += 100; 
+        updateScoreUI(); 
+        setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(wasPlayerMove); }, 200); 
+    } else { 
+        checkMatchesAfterDrop(wasPlayerMove); 
+    }
+}
 
 function findMatches() {
     let matched = new Set();
@@ -487,9 +540,9 @@ function processMatches(matched, isPlayerMove) {
     matched.forEach(pos => {
         const [r, c] = pos.split(',').map(Number);
         if (!spawns.find(s => s.r === r && s.c === c)) {
+            board[r][c] = null;
             const cell = document.getElementById('board').children[r * COLS + c];
             cell.classList.add('disappear'); 
-            setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
         }
     });
     
@@ -499,7 +552,7 @@ function processMatches(matched, isPlayerMove) {
 
     let points = matched.size * 10; score += points; updateScoreUI(); if (goalType === 'score') updateGoalUI();
     
-    setTimeout(() => { dropCells(isPlayerMove); }, 250); 
+    setTimeout(() => { document.querySelectorAll('.disappear').forEach(el => el.classList.remove('disappear')); dropCells(isPlayerMove); }, 200); 
 }
 
 function dropCells(wasPlayerMove) {
@@ -511,8 +564,15 @@ function dropCells(wasPlayerMove) {
         while (newCol.length < ROWS) { newCol.push(Math.floor(Math.random() * TYPES)); }
         for (let r = 0; r < ROWS; r++) { board[ROWS - 1 - r][c] = newCol[r]; }
     }
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { updateCell(document.getElementById('board').children[r * COLS + c], board[r][c]); }
-    setTimeout(() => { checkMatchesAfterDrop(wasPlayerMove); }, 200);
+    
+    // Принудительная отрисовка всего поля
+    for (let r = 0; r < ROWS; r++) { 
+        for (let c = 0; c < COLS; c++) { 
+            updateCell(document.getElementById('board').children[r * COLS + c], board[r][c]); 
+        } 
+    }
+    
+    setTimeout(() => { checkMatchesAfterDrop(wasPlayerMove); }, 150);
 }
 
 function checkMatchesAfterDrop(wasPlayerMove) {
