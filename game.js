@@ -347,12 +347,12 @@ function handleSpecialMove(r1, c1, r2, c2) {
     }
     else if (t1 === 'bomb' && t2 === 'bomb') {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
-        tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ 5х5!");
+        tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ 3х3!");
         
         let unique = new Set();
         let addToDestroy = (centerR, centerC) => {
-            for (let i = -2; i <= 2; i++) {
-                for (let j = -2; j <= 2; j++) {
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
                     let nr = centerR + i, nc = centerC + j;
                     if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
                         let key = `${nr},${nc}`;
@@ -396,7 +396,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
         } else if (specialType === 'bomb') {
             if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
             board[sr][sc] = null; 
-            for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
+            for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
                 let nr = sr + i, nc = sc + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
                     cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); const cell = document.getElementById('board').children[nr * COLS + nc];
@@ -423,7 +423,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
 
 function explodeBombs(wasPlayerMove) { 
     let queue = [];
-    let unique = new Set(); // Чтобы не взрывать одну и ту же клетку дважды
+    let unique = new Set();
 
     for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
@@ -438,23 +438,17 @@ function explodeBombs(wasPlayerMove) {
         
         while (queue.length > 0) {
             let b = queue.shift();
-            
-            // Взрываем 5х5
-            for (let i = -2; i <= 2; i++) {
-                for (let j = -2; j <= 2; j++) {
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
                     let nr = b.r + i, nc = b.c + j;
                     if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
                         let key = `${nr},${nc}`;
                         if (!unique.has(key)) {
                             unique.add(key);
-                            // Если нашли еще одну бомбу - добавляем в очередь на взрыв
                             if (board[nr][nc] === 'bomb') {
                                 queue.push({r: nr, c: nc, type: 'bomb'});
                             }
-                            // МГНОВЕННО очищаем массив
                             board[nr][nc] = null;
-                            
-                            // Анимация
                             const cell = document.getElementById('board').children[nr * COLS + nc];
                             cell.classList.add('disappear'); 
                             setTimeout(() => { cell.classList.remove('disappear'); }, 200);
@@ -464,7 +458,6 @@ function explodeBombs(wasPlayerMove) {
             }
         }
         
-        // Отрисовываем пустые клетки
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
                 updateCell(document.getElementById('board').children[r * COLS + c], board[r][c]);
@@ -473,8 +466,6 @@ function explodeBombs(wasPlayerMove) {
 
         score += 100; 
         updateScoreUI(); 
-        
-        // Теперь, когда массив board полностью обновлен, запускаем падение
         setTimeout(() => { dropCells(wasPlayerMove); }, 250); 
     } else { 
         checkMatchesAfterDrop(wasPlayerMove); 
@@ -562,35 +553,14 @@ function processMatches(matched, isPlayerMove) {
 
 function dropCells(wasPlayerMove) {
     for (let c = 0; c < COLS; c++) {
-        // Создаем новый пустой столбец
         let newCol = [];
-        
-        // Собираем все фрукты, которые остались в этом столбце (снизу вверх)
         for (let r = ROWS - 1; r >= 0; r--) {
-            if (board[r][c] !== null) {
-                newCol.push(board[r][c]);
-            }
+            if (board[r][c] !== null) { newCol.push(board[r][c]); }
         }
-        
-        // Заполняем оставшиеся пустые места сверху новыми фруктами
-        while (newCol.length < ROWS) {
-            newCol.push(Math.floor(Math.random() * TYPES));
-        }
-        
-        // Возвращаем фрукты обратно в массив board (снизу вверх)
-        for (let r = 0; r < ROWS; r++) {
-            board[ROWS - 1 - r][c] = newCol[r];
-        }
+        while (newCol.length < ROWS) { newCol.push(Math.floor(Math.random() * TYPES)); }
+        for (let r = 0; r < ROWS; r++) { board[ROWS - 1 - r][c] = newCol[r]; }
     }
-    
-    // Перерисовываем всё поле
-    for (let r = 0; r < ROWS; r++) { 
-        for (let c = 0; c < COLS; c++) { 
-            updateCell(document.getElementById('board').children[r * COLS + c], board[r][c]); 
-        } 
-    }
-    
-    // Запускаем проверку на совпадения
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) { updateCell(document.getElementById('board').children[r * COLS + c], board[r][c]); }
     setTimeout(() => { checkMatchesAfterDrop(wasPlayerMove); }, 200);
 }
 
