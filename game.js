@@ -202,7 +202,7 @@ function startGame(mode) {
         document.getElementById('goal-display').innerText = mode === 'classic' ? `Ходы: ${movesLeft}` : `Ходы: ∞`;
         generateGoal();
     } else {
-        timeLeft = mode === 'vs' ? 45 : 60;
+        timeLeft = mode === 'vs' ? 60 : 60;
         document.getElementById('goal-display').innerText = `⏳: ${timeLeft}с`;
         document.getElementById('goal-text').innerText = "Цель: Продержись!";
         document.getElementById('goal-progress').innerText = "";
