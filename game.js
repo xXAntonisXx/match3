@@ -56,7 +56,7 @@ function loadPlayerData() {
 }
 
 function showTop() {
-    tg.showAlert("Чтобы увидеть рейтинг всех игроков, нажми кнопку '🏆 Топ игроков' в самом боте или напиши ему команду /top!");
+    tg.showAlert("Чтобы увидеть общий рейтинг всех игроков, нажми кнопку '🏆 Топ игроков' в самом боте!");
 }
 
 function startGame(mode) {
@@ -183,10 +183,6 @@ function startTimer() {
 }
 
 function exitToMenu() {
-    // Если игрок выходит в меню из режима соревнования, сохраняем результат
-    if (currentMode === 'vs' && score > 0) {
-        sendToBot({ action: "update_score", score: score });
-    }
     if (gameInterval) clearInterval(gameInterval);
     gameScreen.style.display = 'none'; gameOverScreen.style.display = 'none'; menuScreen.style.display = 'flex';
 }
@@ -209,7 +205,7 @@ function endGame(reason) {
 
     gameScreen.style.display = 'none'; gameOverScreen.style.display = 'flex';
     
-    // ОТПРАВЛЯЕМ РЕКОРД В БОТ
+    // Отправляем рекорд в бота (он пришлет сообщение с кнопкой Топа)
     if (currentMode === 'vs') {
         sendToBot({ action: "update_score", score: score });
     }
