@@ -71,7 +71,14 @@ document.getElementById('app').innerHTML = `
 
 <div id="donate-modal">
     <h2 style="color: #f39c12;">Покупка монет</h2>
-    <p style="text-align: center; font-size: 14px; padding: 0 20px;">Нажми на синюю кнопку <b>внизу экрана</b>, чтобы купить 500 монет за 10 звезд!</p>
+    <div class="shop-item" onclick="buyStars(500, 10)">
+        <span>🪙 500 монет</span>
+        <span style="color: #f39c12; font-weight: bold;">10 ⭐</span>
+    </div>
+    <div class="shop-item" onclick="buyStars(1500, 25)">
+        <span>🪙 1500 монет</span>
+        <span style="color: #f39c12; font-weight: bold;">25 ⭐</span>
+    </div>
     <button class="menu-btn" style="margin-top: 20px; justify-content: center;" onclick="closeDonate()">Назад</button>
 </div>
 
@@ -132,6 +139,12 @@ function openDonate() {
 function closeDonate() { 
     document.getElementById('donate-modal').style.display = 'none'; 
     tg.MainButton.hide(); 
+}
+
+// ВОЗВРАЩАЕМ ФУНКЦИЮ ПОКУПКИ, ЧТОБЫ РАБОТАЛИ КНОПКИ ВЫБОРА
+function buyStars(amount, stars) {
+    tg.sendData(JSON.stringify({ action: "add_coins", amount: amount, stars: stars }));
+    tg.close();
 }
 
 function buyItem(type, cost) {
