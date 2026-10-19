@@ -129,8 +129,13 @@ function closeDonate() { document.getElementById('donate-modal').style.display =
 
 // ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОКУПКИ (БЕЗ SHOWALERT)
 function buyStars(amount, stars) {
+    // Отправляем данные без showAlert
     tg.sendData(JSON.stringify({ action: "add_coins", amount: amount, stars: stars }));
-    tg.close(); 
+    
+    // Принудительно закрываем игру, чтобы данные точно ушли
+    setTimeout(() => {
+        tg.close();
+    }, 100);
 }
 
 function buyItem(type, cost) {
