@@ -74,7 +74,7 @@ const SPRITES = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png'];
 const BOMB_SPRITE = 'bomb.png';
 const SUPER_BOMB_SPRITE = 'super_bomb.png'; 
 const RAINBOW_SPRITE = 'rainbow.png'; 
-const ROCKET_SPRITE = 'rocket.png'; // НОВАЯ КАРТИНКА
+const ROCKET_SPRITE = 'rocket.png'; 
 
 let soundPop, soundBoom;
 try {
@@ -104,11 +104,7 @@ function loadPlayerData() {
     document.getElementById('shop-coins').innerText = playerCoins;
 }
 
-function openShop() {
-    document.getElementById('shop-coins').innerText = playerCoins;
-    document.getElementById('shop-modal').style.display = 'flex';
-}
-
+function openShop() { document.getElementById('shop-coins').innerText = playerCoins; document.getElementById('shop-modal').style.display = 'flex'; }
 function closeShop() { document.getElementById('shop-modal').style.display = 'none'; }
 
 function buyItem(type, cost) {
@@ -326,13 +322,11 @@ function handleSpecialMove(r1, c1, r2, c2) {
     let t1 = board[r1][c1], t2 = board[r2][c2];
     let cellsDestroyed = [];
     
-    // Комбо ракет
     if (t1.includes('rocket') && t2.includes('rocket')) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🚀 КРЕСТ!");
         let sr = r1, sc = c1;
         board[r1][c1] = null; board[r2][c2] = null;
-        // Уничтожаем ряд и колонку
         for (let c = 0; c < COLS; c++) { cellsDestroyed.push({r: sr, c: c, type: board[sr][c]}); }
         for (let r = 0; r < ROWS; r++) { cellsDestroyed.push({r: r, c: sc, type: board[r][sc]}); }
         
@@ -347,7 +341,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
         });
         setTimeout(() => { dropCells(true); }, 300);
     }
-    // Бомба + Бомба
     else if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ!");
@@ -373,7 +366,6 @@ function handleSpecialMove(r1, c1, r2, c2) {
         });
         setTimeout(() => { explodeBombs(true); }, 250);
     }
-    // Обычное использование
     else {
         let specialType = null, sr = 0, sc = 0, targetType = null;
         if (t1.includes('rocket') || t1 === 'bomb' || t1 === 'super_bomb' || t1 === 'rainbow') { specialType = t1; sr = r1; sc = c1; targetType = t2; } 
@@ -383,10 +375,8 @@ function handleSpecialMove(r1, c1, r2, c2) {
             if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
             board[sr][sc] = null;
             if (specialType === 'rocket_h') {
-                // Горизонтальная
                 for (let c = 0; c < COLS; c++) cellsDestroyed.push({r: sr, c: c, type: board[sr][c]});
             } else {
-                // Вертикальная
                 for (let r = 0; r < ROWS; r++) cellsDestroyed.push({r: r, c: sc, type: board[r][sc]});
             }
             cellsDestroyed.forEach(cell => {
@@ -489,7 +479,7 @@ function processMatches(matched, isPlayerMove) {
     
     let spawns = [];
     
-    // Проверка на КВАДРАТ 2x2 (Ракета)
+    // Проверка на КВАДРАТ 2x2 (Ракета) - ДЕЛАЕМ В ПЕРВУЮ ОЧЕРЕДЬ
     for (let r = 0; r < ROWS - 1; r++) {
         for (let c = 0; c < COLS - 1; c++) {
             let type = board[r][c];
@@ -497,12 +487,16 @@ function processMatches(matched, isPlayerMove) {
                 if (board[r][c+1] === type && board[r+1][c] === type && board[r+1][c+1] === type) {
                     let isHorizontal = Math.random() < 0.5;
                     spawns.push({r: r, c: c, type: isHorizontal ? 'rocket_h' : 'rocket_v'});
+                    matched.delete(`${r},${c}`);
+                    matched.delete(`${r},${c+1}`);
+                    matched.delete(`${r+1},${c}`);
+                    matched.delete(`${r+1},${c+1}`);
                 }
             }
         }
     }
     
-    // Проверка на линии
+    // Проверка на перекрестие
     for (let i = 0; i < lines.length; i++) for (let j = 0; j < lines.length; j++) {
         if (i !== j && lines[i].type === lines[j].type) {
             let intersection = lines[i].cells.find(c1 => lines[j].cells.some(c2 => c1.r === c2.r && c1.c === c2.c));
@@ -510,6 +504,7 @@ function processMatches(matched, isPlayerMove) {
         }
     }
     
+    // Проверка на линии 4 и 5
     lines.forEach(line => {
         if (line.processed) return;
         if (line.count === 4) { 
