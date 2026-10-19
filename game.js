@@ -20,6 +20,12 @@ document.getElementById('app').innerHTML = `
     .btn-shuffle { flex: 1; background: #3498db; border: none; }
     .btn-menu { width: 90%; max-width: 400px; margin-top: 10px; background: #e94560; border: none; padding: 12px; font-weight: bold; }
     .btn-shop { width: 90%; max-width: 400px; margin-top: 10px; background: #f39c12; border: none; color: #1a1a2e; padding: 12px; font-weight: bold; }
+
+    /* НОВЫЙ ВСТРОЕННЫЙ МАГАЗИН */
+    #shop-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; flex-direction: column; align-items: center; justify-content: center; }
+    .shop-item { background: rgba(255,255,255,0.1); border: 1px solid #4ecca3; padding: 15px; margin: 10px; border-radius: 10px; width: 80%; max-width: 300px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .shop-item:hover { background: rgba(255,255,255,0.2); }
+
     #game-over { display: none; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10; }
     #combo-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 30px; font-weight: bold; color: #ffcc00; text-shadow: 0 0 10px #ff0000; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 100; text-align: center; width: 80%; }
     #combo-text.show { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
@@ -43,6 +49,22 @@ document.getElementById('app').innerHTML = `
     <button class="action btn-shop" onclick="openShop()">💎 Магазин</button>
     <button class="action btn-menu" onclick="exitToMenu()">⬅️ В меню</button>
 </div>
+
+<!-- ВСТРОЕННЫЙ МАГАЗИН -->
+<div id="shop-modal">
+    <h2 style="color: #f39c12;">Магазин</h2>
+    <p>Твои монеты: <span id="shop-coins">100</span></p>
+    <div class="shop-item" onclick="buyItem('hammer', 50)">
+        <span>🔨 Молоток (разбить 3х3)</span>
+        <span style="color: #4ecca3; font-weight: bold;">50 🪙</span>
+    </div>
+    <div class="shop-item" onclick="buyItem('shuffle', 30)">
+        <span>🔄 Перемешать поле</span>
+        <span style="color: #4ecca3; font-weight: bold;">30 🪙</span>
+    </div>
+    <button class="menu-btn" style="margin-top: 20px; justify-content: center;" onclick="closeShop()">Закрыть</button>
+</div>
+
 <div id="combo-text"></div>
 <div id="game-over"><h1 id="go-title">Игра окончена!</h1><p id="go-score" style="font-size: 24px; color: #4ecca3;">Очки: 0</p><button class="menu-btn" style="justify-content: center;" onclick="exitToMenu()">В меню</button></div>
 `;
@@ -80,6 +102,46 @@ function loadPlayerData() {
     if (savedCoins !== null) playerCoins = parseInt(savedCoins);
     document.getElementById('hammer-count').innerText = playerHammers;
     document.getElementById('shuffle-count').innerText = playerShuffles;
+    document.getElementById('shop-coins').innerText = playerCoins;
+}
+
+// --- ВСТРОЕННЫЙ МАГАЗИН ---
+function openShop() {
+    document.getElementById('shop-coins').innerText = playerCoins;
+    document.getElementById('shop-modal').style.display = 'flex';
+}
+
+function closeShop() {
+    document.getElementById('shop-modal').style.display = 'none';
+}
+
+function buyItem(type, cost) {
+    if (playerCoins >= cost) {
+        playerCoins -= cost;
+        localStorage.setItem('match3_coins', playerCoins);
+        document.getElementById('shop-coins').innerText = playerCoins;
+        
+        if (type === 'hammer') {
+            playerHammers++;
+            document.getElementById('hammer-count').innerText = playerHammers;
+            sendToBot({ action: "buy_booster", booster: "hammer", cost: cost });
+        } else if (type === 'shuffle') {
+            playerShuffles++;
+            document.getElementById('shuffle-count').innerText = playerShuffles;
+            sendToBot({ action: "buy_booster", booster: "shuffle", cost: cost });
+        }
+        
+        // Показываем всплывающий текст вместо alert
+        const comboEl = document.getElementById('combo-text');
+        comboEl.innerText = "КУПЛЕНО!";
+        comboEl.classList.add('show');
+        setTimeout(() => comboEl.classList.remove('show'), 1000);
+    } else {
+        const comboEl = document.getElementById('combo-text');
+        comboEl.innerText = "НЕДОСТАТОЧНО МОНЕТ!";
+        comboEl.classList.add('show');
+        setTimeout(() => comboEl.classList.remove('show'), 1000);
+    }
 }
 
 function startGame(mode) {
@@ -146,21 +208,6 @@ function useBooster(type) {
         if (playerShuffles > 0) { playerShuffles--; document.getElementById('shuffle-count').innerText = playerShuffles; createBoard(); sendToBot({ action: "spend_booster", booster: "shuffle" }); }
         else tg.showAlert("Нет перемешиваний!");
     }
-}
-
-function openShop() {
-    tg.showPopup({
-        title: "Магазин", message: `Монеты: ${playerCoins}`,
-        buttons: [{id: "buy_hammer", type: "default", text: "🔨 Молоток (50)"}, {id: "buy_shuffle", type: "default", text: "🔄 Микс (30)"}, {id: "cancel", type: "cancel"}]
-    }, (buttonId) => {
-        if (buttonId === "buy_hammer" && playerCoins >= 50) {
-            playerCoins -= 50; localStorage.setItem('match3_coins', playerCoins); playerHammers++;
-            document.getElementById('hammer-count').innerText = playerHammers; sendToBot({ action: "buy_booster", booster: "hammer", cost: 50 });
-        } else if (buttonId === "buy_shuffle" && playerCoins >= 30) {
-            playerCoins -= 30; localStorage.setItem('match3_coins', playerCoins); playerShuffles++;
-            document.getElementById('shuffle-count').innerText = playerShuffles; sendToBot({ action: "buy_booster", booster: "shuffle", cost: 30 });
-        }
-    });
 }
 
 function startTimer() {
@@ -295,38 +342,41 @@ function handleSpecialMove(r1, c1, r2, c2) {
     let t1 = board[r1][c1], t2 = board[r2][c2];
     let cellsDestroyed = [];
     
-    // 1. Бомба + Бомба = Двойной взрыв с эффектом домино
     if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ!");
         
+        // Собираем радиус взрыва первой бомбы
         let rA = r1, cA = c1, radA = t1 === 'super_bomb' ? 2 : 1;
-        board[rA][cA] = null;
         for (let i = -radA; i <= radA; i++) for (let j = -radA; j <= radA; j++) {
             let nr = rA + i, nc = cA + j;
-            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); 
-                const cell = document.getElementById('board').children[nr * COLS + nc];
-                cell.classList.add('disappear'); setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-            }
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
+        }
+        // Собираем радиус взрыва второй бомбы
+        let rB = r2, cB = c2, radB = t2 === 'super_bomb' ? 2 : 1;
+        for (let i = -radB; i <= radB; i++) for (let j = -radB; j <= radB; j++) {
+            let nr = rB + i, nc = cB + j;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
         }
         
-        setTimeout(() => {
-            let rB = r2, cB = c2, radB = t2 === 'super_bomb' ? 2 : 1;
-            board[rB][cB] = null;
-            for (let i = -radB; i <= radB; i++) for (let j = -radB; j <= radB; j++) {
-                let nr = rB + i, nc = cB + j;
-                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                    cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); 
-                    const cell = document.getElementById('board').children[nr * COLS + nc];
-                    cell.classList.add('disappear'); setTimeout(() => { board[nr][nc] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
-                }
+        board[r1][c1] = null; board[r2][c2] = null;
+        
+        // Визуально уничтожаем клетки
+        let uniqueCells = new Set();
+        cellsDestroyed.forEach(cell => {
+            let key = `${cell.r},${cell.c}`;
+            if (!uniqueCells.has(key)) {
+                uniqueCells.add(key);
+                const el = document.getElementById('board').children[cell.r * COLS + cell.c];
+                el.classList.add('disappear'); 
+                setTimeout(() => { board[cell.r][cell.c] = null; updateCell(el, null); el.classList.remove('disappear'); }, 200);
             }
-            explodeBombs(true);
-        }, 250);
-    } 
-    // 2. Радуга + Радуга = Очистка всего поля
-    else if (t1 === 'rainbow' && t2 === 'rainbow') {
+        });
+        
+        // Запускаем цепную реакцию
+        setTimeout(() => { explodeBombs(true); }, 250);
+
+    } else if (t1 === 'rainbow' && t2 === 'rainbow') {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🌈 АБСОЛЮТНАЯ ОЧИСТКА!");
         for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
@@ -334,9 +384,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
             cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
         }
         setTimeout(() => { dropCells(true); }, 300);
-    }
-    // 3. Радуга + Бомба = Очистка всего поля
-    else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
+    } else if ((t1 === 'rainbow' && (t2 === 'bomb' || t2 === 'super_bomb')) || (t2 === 'rainbow' && (t1 === 'bomb' || t1 === 'super_bomb'))) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🌈💥 АБСОЛЮТНАЯ ОЧИСТКА!");
         for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
@@ -344,9 +392,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
             cell.classList.add('disappear'); setTimeout(() => { board[r][c] = null; updateCell(cell, null); cell.classList.remove('disappear'); }, 200);
         }
         setTimeout(() => { dropCells(true); }, 300);
-    }
-    // 4. Обычное использование спец-фишки
-    else {
+    } else {
         let specialType = null, sr = 0, sc = 0, targetType = null;
         if (t1 === 'bomb' || t1 === 'super_bomb' || t1 === 'rainbow') { specialType = t1; sr = r1; sc = c1; targetType = t2; } 
         else { specialType = t2; sr = r2; sc = c2; targetType = t1; }
@@ -381,23 +427,38 @@ function handleSpecialMove(r1, c1, r2, c2) {
 
 function explodeBombs(wasPlayerMove) { 
     let queue = [];
+    // Сначала собираем ВСЕ бомбы, которые сейчас есть на поле
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-        if (board[r][c] === 'bomb' || board[r][c] === 'super_bomb') { queue.push({r, c, type: board[r][c]}); board[r][c] = null; }
+        if (board[r][c] === 'bomb' || board[r][c] === 'super_bomb') { 
+            queue.push({r, c, type: board[r][c]}); 
+            board[r][c] = null; 
+        }
     }
+    
     if (queue.length > 0) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         while (queue.length > 0) {
-            let b = queue.shift(), radius = b.type === 'super_bomb' ? 2 : 1;
+            let b = queue.shift();
+            let radius = b.type === 'super_bomb' ? 2 : 1;
             for (let i = -radius; i <= radius; i++) for (let j = -radius; j <= radius; j++) {
                 let nr = b.r + i, nc = b.c + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                    if (board[nr][nc] === 'bomb' || board[nr][nc] === 'super_bomb') { queue.push({r: nr, c: nc, type: board[nr][nc]}); board[nr][nc] = null; }
+                    // Если в зоне взрыва оказалась ЕЩЕ бомба, добавляем её в очередь!
+                    if (board[nr][nc] === 'bomb' || board[nr][nc] === 'super_bomb') { 
+                        queue.push({r: nr, c: nc, type: board[nr][nc]}); 
+                        board[nr][nc] = null; 
+                    }
                     const cell = document.getElementById('board').children[nr * COLS + nc];
-                    cell.classList.add('disappear'); setTimeout(() => { if(board[nr][nc] !== null) { board[nr][nc] = null; updateCell(cell, null); } cell.classList.remove('disappear'); }, 200);
+                    cell.classList.add('disappear'); 
+                    setTimeout(() => { 
+                        if(board[nr][nc] !== null) { board[nr][nc] = null; updateCell(cell, null); } 
+                        cell.classList.remove('disappear'); 
+                    }, 200);
                 }
             }
         }
-        score += 100; updateScoreUI(); setTimeout(() => { dropCells(wasPlayerMove); }, 300); 
+        score += 100; updateScoreUI(); 
+        setTimeout(() => { dropCells(wasPlayerMove); }, 300); 
     } else { checkMatchesAfterDrop(wasPlayerMove); }
 }
 
