@@ -60,7 +60,24 @@ document.getElementById('app').innerHTML = `
         <span>🔄 Перемешать поле</span>
         <span style="color: #4ecca3; font-weight: bold;">30 🪙</span>
     </div>
+    <div class="shop-item" style="background: rgba(243, 156, 18, 0.2); border-color: #f39c12;" onclick="openDonate()">
+        <span>⭐ Купить монеты за Stars</span>
+        <span style="color: #f39c12; font-weight: bold;">Донат</span>
+    </div>
     <button class="menu-btn" style="margin-top: 20px; justify-content: center;" onclick="closeShop()">Закрыть</button>
+</div>
+
+<div id="donate-modal" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 300; flex-direction: column; align-items: center; justify-content: center;">
+    <h2 style="color: #f39c12;">Покупка монет</h2>
+    <div class="shop-item" onclick="buyStars(500, 50)">
+        <span>🪙 500 монет</span>
+        <span style="color: #f39c12; font-weight: bold;">50 ⭐</span>
+    </div>
+    <div class="shop-item" onclick="buyStars(1500, 130)">
+        <span>🪙 1500 монет</span>
+        <span style="color: #f39c12; font-weight: bold;">130 ⭐</span>
+    </div>
+    <button class="menu-btn" style="margin-top: 20px; justify-content: center;" onclick="closeDonate()">Назад</button>
 </div>
 
 <div id="combo-text"></div>
@@ -105,6 +122,15 @@ function loadPlayerData() {
 
 function openShop() { document.getElementById('shop-coins').innerText = playerCoins; document.getElementById('shop-modal').style.display = 'flex'; }
 function closeShop() { document.getElementById('shop-modal').style.display = 'none'; }
+function openDonate() { document.getElementById('donate-modal').style.display = 'flex'; }
+function closeDonate() { document.getElementById('donate-modal').style.display = 'none'; }
+
+function buyStars(amount, stars) {
+    sendToBot({ action: "add_coins", amount: amount, stars: stars });
+    closeDonate();
+    closeShop();
+    tg.showAlert("Счет на оплату отправлен в чат с ботом! Оплати его, и монеты зачислятся.");
+}
 
 function buyItem(type, cost) {
     if (playerCoins >= cost) {
@@ -565,7 +591,6 @@ function dropCells(wasPlayerMove) {
         for (let r = 0; r < ROWS; r++) { board[ROWS - 1 - r][c] = newCol[r]; }
     }
     
-    // Принудительная отрисовка всего поля
     for (let r = 0; r < ROWS; r++) { 
         for (let c = 0; c < COLS; c++) { 
             updateCell(document.getElementById('board').children[r * COLS + c], board[r][c]); 
