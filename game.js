@@ -25,6 +25,8 @@ document.getElementById('app').innerHTML = `
     .shop-item { background: rgba(255,255,255,0.1); border: 1px solid #4ecca3; padding: 15px; margin: 10px; border-radius: 10px; width: 80%; max-width: 300px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
     .shop-item:hover { background: rgba(255,255,255,0.2); }
 
+    #donate-modal { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 300; flex-direction: column; align-items: center; justify-content: center; }
+
     #game-over { display: none; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10; }
     #combo-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 30px; font-weight: bold; color: #ffcc00; text-shadow: 0 0 10px #ff0000; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 100; text-align: center; width: 80%; }
     #combo-text.show { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
@@ -67,7 +69,7 @@ document.getElementById('app').innerHTML = `
     <button class="menu-btn" style="margin-top: 20px; justify-content: center;" onclick="closeShop()">Закрыть</button>
 </div>
 
-<div id="donate-modal" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 300; flex-direction: column; align-items: center; justify-content: center;">
+<div id="donate-modal">
     <h2 style="color: #f39c12;">Покупка монет</h2>
     <div class="shop-item" onclick="buyStars(500, 50)">
         <span>🪙 500 монет</span>
@@ -125,11 +127,12 @@ function closeShop() { document.getElementById('shop-modal').style.display = 'no
 function openDonate() { document.getElementById('donate-modal').style.display = 'flex'; }
 function closeDonate() { document.getElementById('donate-modal').style.display = 'none'; }
 
+// ИСПРАВЛЕННАЯ ФУНКЦИЯ ПОКУПКИ
 function buyStars(amount, stars) {
-    sendToBot({ action: "add_coins", amount: amount, stars: stars });
-    closeDonate();
-    closeShop();
-    tg.showAlert("Счет на оплату отправлен в чат с ботом! Оплати его, и монеты зачислятся.");
+    tg.sendData(JSON.stringify({ action: "add_coins", amount: amount, stars: stars }));
+    tg.showAlert("Счет на оплату отправлен в чат с ботом! Оплати его, и монеты зачислятся.", () => {
+        tg.close(); // Принудительно закрываем окно, чтобы данные точно ушли
+    });
 }
 
 function buyItem(type, cost) {
