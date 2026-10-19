@@ -55,24 +55,25 @@ function loadPlayerData() {
     sendToBot({ action: "get_data" });
 }
  
-// Вызов топа
+// --- ЛОКАЛЬНЫЙ ТОП ИГРОКОВ ---
 function showTop() {
-    // Создаем всплывающее окно внутри игры
-    tg.showPopup({
-        title: "🏆 Топ игроков",
-        message: "Загрузка данных...",
-        buttons: [{id: "close", type: "close"}]
+    let records = JSON.parse(localStorage.getItem('match3_records') || "[]");
+ 
+    if (records.length === 0) {
+        tg.showAlert("🏆 Топ пока пуст. Сыграй в режим 'Соревнование', чтобы установить рекорд!");
+        return;
+    }
+ 
+    // Сортируем по убыванию
+    records.sort((a, b) => b.score - a.score);
+ 
+    let text = "";
+    records.slice(0, 10).forEach((r, i) => {
+        let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1) + ".";
+        text += `${medal} ${r.name}: ${r.score} очков\n`;
     });
  
-    // Отправляем запрос боту
-    sendToBot({ action: "get_top" });
- 
-    // Так как бот присылает ответ в чат, а не в игру, 
-    // мы просто показываем локальное сообщение. 
-    // В идеале для этого нужен сервер с API, но мы сделаем через чат.
-    setTimeout(() => {
-        tg.showAlert("Список лучших игроков отправлен тебе в чат с ботом! Посмотри сообщение.");
-    }, 1500);
+    tg.showAlert("🏆 ТОП ИГРОКОВ:\n\n" + text);
 }
  
 function startGame(mode) {
@@ -220,7 +221,16 @@ function endGame(reason) {
     }
  
     gameScreen.style.display = 'none'; gameOverScreen.style.display = 'flex';
-    if (currentMode === 'vs') sendToBot({ action: "update_score", score: score });
+ 
+    if (currentMode === 'vs') {
+        sendToBot({ action: "update_score", score: score });
+ 
+        // СОХРАНЯЕМ РЕКОРД В ПАМЯТЬ ТЕЛЕФОНА
+        let playerName = tg.initDataUnsafe?.user?.first_name || "Игрок";
+        let records = JSON.parse(localStorage.getItem('match3_records') || "[]");
+        records.push({ name: playerName, score: score });
+        localStorage.setItem('match3_records', JSON.stringify(records));
+    }
 }
  
 function updateScoreUI() { scoreEl.innerText = `⭐ Очки: ${score}`; }
