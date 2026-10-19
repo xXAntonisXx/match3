@@ -1,7 +1,6 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-// --- ВСТРАИВАЕМ HTML И CSS ПРЯМО В JS ---
 document.getElementById('app').innerHTML = `
 <style>
     body { margin: 0; background: #1a1a2e; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; user-select: none; }
@@ -124,9 +123,16 @@ function checkGoalComplete() {
     if (currentMode === 'classic' && ((goalType === 'score' && score >= goalTarget) || (goalType === 'fruit' && goalProgress >= goalTarget))) {
         endGame("🎉 Уровень пройден!"); return true;
     } else if (currentMode === 'endless' && goalType === 'fruit' && goalProgress >= goalTarget) {
-        currentLevel++; score += 500; playerCoins += 30; localStorage.setItem('match3_coins', playerCoins);
-        sendToBot({ action: "endless_goal", reward: 30 });
-        tg.showAlert("🎉 Цель выполнена! +30 монет!"); generateGoal(); return false; 
+        // НАГРАДА ЗА БЕСКОНЕЧНУЮ ЦЕЛЬ - 1 МОНЕТА
+        currentLevel++; score += 500; playerCoins += 1; localStorage.setItem('match3_coins', playerCoins);
+        sendToBot({ action: "endless_goal", reward: 1 });
+        
+        // Показываем красивое уведомление
+        tg.showAlert("🎉 Цель выполнена! Получена 1 монета!");
+        
+        // Небольшая задержка, чтобы игра не зависла и анимация успела закончиться
+        setTimeout(() => { generateGoal(); }, 300); 
+        return false; 
     }
     return false;
 }
@@ -174,10 +180,11 @@ function exitToMenu() {
 function endGame(reason) {
     if (isGameOver) return; isGameOver = true; if (gameInterval) clearInterval(gameInterval);
     if (currentMode === 'classic' && reason === "🎉 Уровень пройден!") {
-        currentLevel++; playerCoins += 50; localStorage.setItem('match3_coins', playerCoins);
-        sendToBot({ action: "level_complete", level: currentLevel, reward: 50 });
+        // НАГРАДА ЗА УРОВЕНЬ - 5 МОНЕТ
+        currentLevel++; playerCoins += 5; localStorage.setItem('match3_coins', playerCoins);
+        sendToBot({ action: "level_complete", level: currentLevel, reward: 5 });
         document.getElementById('go-title').innerText = reason;
-        document.getElementById('go-score').innerText = `Очки: ${score}\n💰 +50 монет!`;
+        document.getElementById('go-score').innerText = `Очки: ${score}\n💰 +5 монет!`;
     } else {
         document.getElementById('go-title').innerText = reason;
         document.getElementById('go-score').innerText = `Очки: ${score}`;
@@ -392,7 +399,6 @@ function processMatches(matched, isPlayerMove) {
     if(soundPop) { soundPop.currentTime = 0; soundPop.play().catch(e => {}); }
     if (!isPlayerMove) { comboCount++; if (comboCount > 1) { score += 50 * comboCount; } } else { comboCount = 0; }
     
-    // СНАЧАЛА ЗАСЧИТЫВАЕМ ЦЕЛЬ ЗА ВСЕ СОБРАННЫЕ ФРУКТЫ (включая те, что станут бомбами)
     if (goalType === 'fruit') {
         matched.forEach(pos => { 
             const [r, c] = pos.split(',').map(Number); 
