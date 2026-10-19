@@ -53,7 +53,7 @@ document.getElementById('app').innerHTML = `
     <h2 style="color: #f39c12;">Магазин</h2>
     <p>Твои монеты: <span id="shop-coins">100</span></p>
     <div class="shop-item" onclick="buyItem('hammer', 50)">
-        <span>🔨 Молоток (разбить 3х3)</span>
+        <span>🔨 Молоток (разбить 5х5)</span>
         <span style="color: #4ecca3; font-weight: bold;">50 🪙</span>
     </div>
     <div class="shop-item" onclick="buyItem('shuffle', 30)">
@@ -244,8 +244,10 @@ function handleHammer(r, c) {
     sendToBot({ action: "spend_booster", booster: "hammer" });
     if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
     let cellsDestroyed = [];
-    for (let i = -1; i <= 1; i++) {
-        for (let j = -1; j <= 1; j++) {
+    
+    // Молоток бьет 5х5 (идеальный центр)
+    for (let i = -2; i <= 2; i++) {
+        for (let j = -2; j <= 2; j++) {
             let nr = r + i, nc = c + j;
             if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
                 cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
@@ -340,29 +342,34 @@ function handleSpecialMove(r1, c1, r2, c2) {
         });
         setTimeout(() => { dropCells(true); }, 300);
     }
-    // Бомба + Бомба = Двойной взрыв
+    // Бомба + Бомба = Двойной взрыв 5х5
     else if (t1 === 'bomb' && t2 === 'bomb') {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
-        tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ!");
-        let rA = r1, cA = c1, radA = 1;
-        for (let i = -radA; i <= radA; i++) for (let j = -radA; j <= radA; j++) {
-            let nr = rA + i, nc = cA + j;
-            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
-        }
-        let rB = r2, cB = c2, radB = 1;
-        for (let i = -radB; i <= radB; i++) for (let j = -radB; j <= radB; j++) {
-            let nr = rB + i, nc = cB + j;
-            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
-        }
-        board[r1][c1] = null; board[r2][c2] = null;
+        tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ 5х5!");
+        
         let unique = new Set();
-        cellsDestroyed.forEach(cell => {
-            let key = `${cell.r},${cell.c}`;
-            if (!unique.has(key)) {
-                unique.add(key);
-                const el = document.getElementById('board').children[cell.r * COLS + cell.c];
-                el.classList.add('disappear'); setTimeout(() => { board[cell.r][cell.c] = null; updateCell(el, null); el.classList.remove('disappear'); }, 200);
+        let addToDestroy = (centerR, centerC) => {
+            for (let i = -2; i <= 2; i++) {
+                for (let j = -2; j <= 2; j++) {
+                    let nr = centerR + i, nc = centerC + j;
+                    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                        let key = `${nr},${nc}`;
+                        if (!unique.has(key)) {
+                            unique.add(key);
+                            cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
+                        }
+                    }
+                }
             }
+        };
+        
+        addToDestroy(r1, c1);
+        addToDestroy(r2, c2);
+        board[r1][c1] = null; board[r2][c2] = null;
+        
+        cellsDestroyed.forEach(cell => {
+            const el = document.getElementById('board').children[cell.r * COLS + cell.c];
+            el.classList.add('disappear'); setTimeout(() => { board[cell.r][cell.c] = null; updateCell(el, null); el.classList.remove('disappear'); }, 200);
         });
         setTimeout(() => { explodeBombs(true); }, 250);
     }
@@ -386,8 +393,9 @@ function handleSpecialMove(r1, c1, r2, c2) {
             setTimeout(() => { dropCells(true); }, 300);
         } else if (specialType === 'bomb') {
             if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
-            board[sr][sc] = null; let radius = 1;
-            for (let i = -radius; i <= radius; i++) for (let j = -radius; j <= radius; j++) {
+            board[sr][sc] = null; 
+            // Взрыв бомбы 5х5
+            for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
                 let nr = sr + i, nc = sc + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
                     cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]}); const cell = document.getElementById('board').children[nr * COLS + nc];
@@ -420,8 +428,9 @@ function explodeBombs(wasPlayerMove) {
     if (queue.length > 0) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         while (queue.length > 0) {
-            let b = queue.shift(), radius = 1;
-            for (let i = -radius; i <= radius; i++) for (let j = -radius; j <= radius; j++) {
+            let b = queue.shift();
+            // Цепная реакция бомб 5х5
+            for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
                 let nr = b.r + i, nc = b.c + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
                     if (board[nr][nc] === 'bomb') { queue.push({r: nr, c: nc, type: board[nr][nc]}); board[nr][nc] = null; }
@@ -492,7 +501,6 @@ function processMatches(matched, isPlayerMove) {
         if (line.processed) return;
         if (line.count === 4) { 
             let mid = line.cells[1]; 
-            // 4 в ряд = Ракета (летит вдоль линии)
             spawns.push({r: mid.r, c: mid.c, type: line.dir === 'h' ? 'rocket_h' : 'rocket_v'}); 
         } 
         else if (line.count >= 5) { let mid = line.cells[2]; spawns.push({r: mid.r, c: mid.c, type: 'rainbow'}); }
