@@ -72,7 +72,6 @@ const COLS = 8;
 const TYPES = 6; 
 const SPRITES = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png'];
 const BOMB_SPRITE = 'bomb.png';
-const SUPER_BOMB_SPRITE = 'super_bomb.png'; 
 const RAINBOW_SPRITE = 'rainbow.png'; 
 const ROCKET_SPRITE = 'rocket.png'; 
 
@@ -263,7 +262,6 @@ function handleHammer(r, c) {
 function updateCell(cell, type) {
     if (type === null) { cell.innerHTML = ''; } 
     else if (type === 'bomb') { cell.innerHTML = `<img src="${BOMB_SPRITE}">`; } 
-    else if (type === 'super_bomb') { cell.innerHTML = `<img src="${SUPER_BOMB_SPRITE}">`; } 
     else if (type === 'rainbow') { cell.innerHTML = `<img src="${RAINBOW_SPRITE}">`; }
     else if (type === 'rocket_h') { cell.innerHTML = `<img src="${ROCKET_SPRITE}" style="transform: rotate(0deg);">`; }
     else if (type === 'rocket_v') { cell.innerHTML = `<img src="${ROCKET_SPRITE}" style="transform: rotate(90deg);">`; }
@@ -298,7 +296,7 @@ function swapCells(r1, c1, r2, c2) {
     updateCell(document.getElementById('board').children[r1 * COLS + c1], board[r1][c1]);
     updateCell(document.getElementById('board').children[r2 * COLS + c2], board[r2][c2]);
     setTimeout(() => {
-        if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb' || board[r1][c1] === 'super_bomb' || board[r2][c2] === 'super_bomb' || board[r1][c1] === 'rainbow' || board[r2][c2] === 'rainbow' || board[r1][c1].includes('rocket') || board[r2][c2].includes('rocket')) {
+        if (board[r1][c1] === 'bomb' || board[r2][c2] === 'bomb' || board[r1][c1] === 'rainbow' || board[r2][c2] === 'rainbow' || board[r1][c1].includes('rocket') || board[r2][c2].includes('rocket')) {
             handleSpecialMove(r1, c1, r2, c2); 
         } else {
             let initialMatches = findMatches();
@@ -322,6 +320,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
     let t1 = board[r1][c1], t2 = board[r2][c2];
     let cellsDestroyed = [];
     
+    // Ракета + Ракета = Крест
     if (t1.includes('rocket') && t2.includes('rocket')) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("🚀 КРЕСТ!");
@@ -341,15 +340,16 @@ function handleSpecialMove(r1, c1, r2, c2) {
         });
         setTimeout(() => { dropCells(true); }, 300);
     }
-    else if ((t1 === 'bomb' || t1 === 'super_bomb') && (t2 === 'bomb' || t2 === 'super_bomb')) {
+    // Бомба + Бомба = Двойной взрыв
+    else if (t1 === 'bomb' && t2 === 'bomb') {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         tg.showAlert("💥 ДВОЙНОЙ ВЗРЫВ!");
-        let rA = r1, cA = c1, radA = t1 === 'super_bomb' ? 2 : 1;
+        let rA = r1, cA = c1, radA = 1;
         for (let i = -radA; i <= radA; i++) for (let j = -radA; j <= radA; j++) {
             let nr = rA + i, nc = cA + j;
             if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
         }
-        let rB = r2, cB = c2, radB = t2 === 'super_bomb' ? 2 : 1;
+        let rB = r2, cB = c2, radB = 1;
         for (let i = -radB; i <= radB; i++) for (let j = -radB; j <= radB; j++) {
             let nr = rB + i, nc = cB + j;
             if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) cellsDestroyed.push({r: nr, c: nc, type: board[nr][nc]});
@@ -368,7 +368,7 @@ function handleSpecialMove(r1, c1, r2, c2) {
     }
     else {
         let specialType = null, sr = 0, sc = 0, targetType = null;
-        if (t1.includes('rocket') || t1 === 'bomb' || t1 === 'super_bomb' || t1 === 'rainbow') { specialType = t1; sr = r1; sc = c1; targetType = t2; } 
+        if (t1.includes('rocket') || t1 === 'bomb' || t1 === 'rainbow') { specialType = t1; sr = r1; sc = c1; targetType = t2; } 
         else { specialType = t2; sr = r2; sc = c2; targetType = t1; }
         
         if (specialType.includes('rocket')) {
@@ -384,9 +384,9 @@ function handleSpecialMove(r1, c1, r2, c2) {
                 el.classList.add('disappear'); setTimeout(() => { board[cell.r][cell.c] = null; updateCell(el, null); el.classList.remove('disappear'); }, 200);
             });
             setTimeout(() => { dropCells(true); }, 300);
-        } else if (specialType === 'bomb' || specialType === 'super_bomb') {
+        } else if (specialType === 'bomb') {
             if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
-            board[sr][sc] = null; let radius = specialType === 'super_bomb' ? 2 : 1;
+            board[sr][sc] = null; let radius = 1;
             for (let i = -radius; i <= radius; i++) for (let j = -radius; j <= radius; j++) {
                 let nr = sr + i, nc = sc + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
@@ -415,16 +415,16 @@ function handleSpecialMove(r1, c1, r2, c2) {
 function explodeBombs(wasPlayerMove) { 
     let queue = [];
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-        if (board[r][c] === 'bomb' || board[r][c] === 'super_bomb') { queue.push({r, c, type: board[r][c]}); board[r][c] = null; }
+        if (board[r][c] === 'bomb') { queue.push({r, c, type: board[r][c]}); board[r][c] = null; }
     }
     if (queue.length > 0) {
         if(soundBoom) { soundBoom.currentTime = 0; soundBoom.play().catch(e => {}); }
         while (queue.length > 0) {
-            let b = queue.shift(), radius = b.type === 'super_bomb' ? 2 : 1;
+            let b = queue.shift(), radius = 1;
             for (let i = -radius; i <= radius; i++) for (let j = -radius; j <= radius; j++) {
                 let nr = b.r + i, nc = b.c + j;
                 if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-                    if (board[nr][nc] === 'bomb' || board[nr][nc] === 'super_bomb') { queue.push({r: nr, c: nc, type: board[nr][nc]}); board[nr][nc] = null; }
+                    if (board[nr][nc] === 'bomb') { queue.push({r: nr, c: nc, type: board[nr][nc]}); board[nr][nc] = null; }
                     const cell = document.getElementById('board').children[nr * COLS + nc];
                     cell.classList.add('disappear'); setTimeout(() => { if(board[nr][nc] !== null) { board[nr][nc] = null; updateCell(cell, null); } cell.classList.remove('disappear'); }, 200);
                 }
@@ -437,12 +437,12 @@ function explodeBombs(wasPlayerMove) {
 function findMatches() {
     let matched = new Set();
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS - 2; c++) {
-        if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && !board[r][c].includes('rocket') && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
+        if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && !board[r][c].includes('rocket') && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
             matched.add(`${r},${c}`); matched.add(`${r},${c+1}`); matched.add(`${r},${c+2}`);
         }
     }
     for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS - 2; r++) {
-        if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && !board[r][c].includes('rocket') && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
+        if (board[r][c] !== null && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && !board[r][c].includes('rocket') && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
             matched.add(`${r},${c}`); matched.add(`${r+1},${c}`); matched.add(`${r+2},${c}`);
         }
     }
@@ -465,42 +465,25 @@ function processMatches(matched, isPlayerMove) {
     for (let r = 0; r < ROWS; r++) {
         let count = 1;
         for (let c = 1; c <= COLS; c++) {
-            if (c < COLS && board[r][c] !== null && board[r][c] === board[r][c-1] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && !board[r][c].includes('rocket')) count++;
+            if (c < COLS && board[r][c] !== null && board[r][c] === board[r][c-1] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && !board[r][c].includes('rocket')) count++;
             else { if (count >= 3) { let line = []; for(let i=0; i<count; i++) line.push({r, c: c-1-i}); lines.push({cells: line, type: board[r][c-1], count, dir: 'h'}); } count = 1; }
         }
     }
     for (let c = 0; c < COLS; c++) {
         let count = 1;
         for (let r = 1; r <= ROWS; r++) {
-            if (r < ROWS && board[r][c] !== null && board[r][c] === board[r-1][c] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && board[r][c] !== 'super_bomb' && !board[r][c].includes('rocket')) count++;
+            if (r < ROWS && board[r][c] !== null && board[r][c] === board[r-1][c] && board[r][c] !== 'bomb' && board[r][c] !== 'rainbow' && !board[r][c].includes('rocket')) count++;
             else { if (count >= 3) { let line = []; for(let i=0; i<count; i++) line.push({r: r-1-i, c}); lines.push({cells: line, type: board[r-1][c], count, dir: 'v'}); } count = 1; }
         }
     }
     
     let spawns = [];
     
-    // Проверка на КВАДРАТ 2x2 (Ракета) - ДЕЛАЕМ В ПЕРВУЮ ОЧЕРЕДЬ
-    for (let r = 0; r < ROWS - 1; r++) {
-        for (let c = 0; c < COLS - 1; c++) {
-            let type = board[r][c];
-            if (type !== null && type !== 'bomb' && type !== 'rainbow' && type !== 'super_bomb' && !type.includes('rocket')) {
-                if (board[r][c+1] === type && board[r+1][c] === type && board[r+1][c+1] === type) {
-                    let isHorizontal = Math.random() < 0.5;
-                    spawns.push({r: r, c: c, type: isHorizontal ? 'rocket_h' : 'rocket_v'});
-                    matched.delete(`${r},${c}`);
-                    matched.delete(`${r},${c+1}`);
-                    matched.delete(`${r+1},${c}`);
-                    matched.delete(`${r+1},${c+1}`);
-                }
-            }
-        }
-    }
-    
-    // Проверка на перекрестие
+    // Проверка на перекрестие (Г-образно) = Бомба
     for (let i = 0; i < lines.length; i++) for (let j = 0; j < lines.length; j++) {
         if (i !== j && lines[i].type === lines[j].type) {
             let intersection = lines[i].cells.find(c1 => lines[j].cells.some(c2 => c1.r === c2.r && c1.c === c2.c));
-            if (intersection) { spawns.push({r: intersection.r, c: intersection.c, type: 'super_bomb'}); lines[i].processed = true; lines[j].processed = true; }
+            if (intersection) { spawns.push({r: intersection.r, c: intersection.c, type: 'bomb'}); lines[i].processed = true; lines[j].processed = true; }
         }
     }
     
@@ -509,6 +492,7 @@ function processMatches(matched, isPlayerMove) {
         if (line.processed) return;
         if (line.count === 4) { 
             let mid = line.cells[1]; 
+            // 4 в ряд = Ракета (летит вдоль линии)
             spawns.push({r: mid.r, c: mid.c, type: line.dir === 'h' ? 'rocket_h' : 'rocket_v'}); 
         } 
         else if (line.count >= 5) { let mid = line.cells[2]; spawns.push({r: mid.r, c: mid.c, type: 'rainbow'}); }
