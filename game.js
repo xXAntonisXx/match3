@@ -562,20 +562,24 @@ function processMatches(matched, isPlayerMove) {
 
 function dropCells(wasPlayerMove) {
     for (let c = 0; c < COLS; c++) {
-        let emptyRow = ROWS - 1;
-        // Сдвигаем фрукты вниз
+        // Создаем новый пустой столбец
+        let newCol = [];
+        
+        // Собираем все фрукты, которые остались в этом столбце (снизу вверх)
         for (let r = ROWS - 1; r >= 0; r--) {
-            if (board[r][c] !== null) { 
-                if (r !== emptyRow) { 
-                    board[emptyRow][c] = board[r][c]; 
-                    board[r][c] = null; 
-                } 
-                emptyRow--; 
+            if (board[r][c] !== null) {
+                newCol.push(board[r][c]);
             }
         }
-        // Принудительно заполняем все пустые места сверху новыми фруктами
-        for (let r = emptyRow; r >= 0; r--) { 
-            board[r][c] = Math.floor(Math.random() * TYPES); 
+        
+        // Заполняем оставшиеся пустые места сверху новыми фруктами
+        while (newCol.length < ROWS) {
+            newCol.push(Math.floor(Math.random() * TYPES));
+        }
+        
+        // Возвращаем фрукты обратно в массив board (снизу вверх)
+        for (let r = 0; r < ROWS; r++) {
+            board[ROWS - 1 - r][c] = newCol[r];
         }
     }
     
