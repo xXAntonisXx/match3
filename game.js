@@ -127,13 +127,6 @@ function closeShop() { document.getElementById('shop-modal').style.display = 'no
 
 function openDonate() { 
     document.getElementById('donate-modal').style.display = 'flex'; 
-    tg.MainButton.setText("КУПИТЬ 500 МОНЕТ ЗА 10 ⭐");
-    tg.MainButton.color = "#f39c12";
-    tg.MainButton.show();
-    
-    tg.MainButton.onClick(() => {
-        tg.sendData(JSON.stringify({ action: "add_coins", amount: 500, stars: 10 }));
-    });
 }
 
 function closeDonate() { 
@@ -141,10 +134,13 @@ function closeDonate() {
     tg.MainButton.hide(); 
 }
 
-// ВОЗВРАЩАЕМ ФУНКЦИЮ ПОКУПКИ, ЧТОБЫ РАБОТАЛИ КНОПКИ ВЫБОРА
+// ФУНКЦИЯ ПОКУПКИ ЗВЕЗД С ЗАДЕРЖКОЙ (ЧТОБЫ РАБОТАЛО НА ANDROID)
 function buyStars(amount, stars) {
     tg.sendData(JSON.stringify({ action: "add_coins", amount: amount, stars: stars }));
-    tg.close();
+    // Задержка в 50мс дает Telegram время передать данные перед закрытием
+    setTimeout(() => {
+        tg.close();
+    }, 50);
 }
 
 function buyItem(type, cost) {
