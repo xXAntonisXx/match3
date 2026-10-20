@@ -46,6 +46,7 @@ document.getElementById('app').innerHTML = `
     #combo-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 30px; font-weight: bold; color: #ffcc00; text-shadow: 0 0 10px #ff0000; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 100; text-align: center; width: 80%; }
     #combo-text.show { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
 </style>
+
 <div id="menu">
     <h1>🍉 Match 3 Pro</h1>
     <div id="wallet">💰 Загрузка...</div>
@@ -57,6 +58,7 @@ document.getElementById('app').innerHTML = `
     <button class="menu-btn" style="background: #8e44ad; border-color: #8e44ad;" onclick="showTop()"><span>🏆 Топ игроков</span> <span>Рекорды</span></button>
     <button class="menu-btn" style="background: #e74c3c; border-color: #e74c3c;" onclick="getDailyBonus()"><span>🎁 Бонус</span> <span>Ежедневно</span></button>
 </div>
+
 <div id="game-screen">
     <div id="level-goal"><div id="goal-text">Цель</div><div id="goal-progress">0 / 15</div></div>
     <div class="header"><span id="score-display">⭐ Очки: 0</span><span id="goal-display">Ходы: 30</span></div>
@@ -70,7 +72,12 @@ document.getElementById('app').innerHTML = `
 </div>
 
 <div id="combo-text"></div>
-<div id="game-over"><h1 id="go-title">Игра окончена!</h1><p id="go-score" style="font-size: 24px; color: #4ecca3;">Очки: 0</p><button class="menu-btn" style="justify-content: center;" onclick="exitToMenu()">В меню</button></div>
+
+<div id="game-over">
+    <h1 id="go-title" style="margin-bottom: 10px;">Игра окончена!</h1>
+    <p id="go-score" style="font-size: 22px; color: #4ecca3; text-align: center; margin-bottom: 20px;">Очки: 0</p>
+    <button class="menu-btn" style="justify-content: center; background: #e94560; border-color: #e94560;" onclick="exitToMenu()">⬅️ В меню</button>
+</div>
 `;
 
 // ================= КОНСТАНТЫ =================
@@ -185,6 +192,7 @@ function queueSync(action) {
     saveCache();
 }
 
+// Отправка данных в бота БЕЗ закрытия WebApp
 function flushSync() {
     const has = pendingSync.spentHammers > 0 || pendingSync.spentShuffles > 0 || pendingSync.earnedCoins > 0 || pendingSync.newLevel;
     if (!has) return;
@@ -198,7 +206,6 @@ function flushSync() {
         }
     };
     
-    // Мягкая отправка (не закрывает WebApp)
     try {
         tg.sendData(JSON.stringify(payload));
     } catch (e) {
@@ -286,9 +293,14 @@ function startTimer() {
     }, 1000);
 }
 
+// ТА САМАЯ ФУНКЦИЯ ВЫХОДА
 function exitToMenu() {
     if (gameInterval) clearInterval(gameInterval);
-    flushSync(); // Отправляем данные в бота (фоном)
+    
+    // 1. Отправляем данные в бота
+    flushSync(); 
+    
+    // 2. Переключаем экран (если WebApp не закроется от sendData)
     document.getElementById('game-screen').style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
     document.getElementById('menu').style.display = 'flex';
@@ -312,7 +324,6 @@ function endGame(reason) {
     if (currentMode === 'vs') {
         if (score > maxScore) maxScore = score;
         saveCache();
-        // Отправляем рекорд без закрытия WebApp
         try { tg.sendData(JSON.stringify({ record: score })); } catch (e) {}
     }
 }
