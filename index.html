@@ -20,10 +20,30 @@ document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { pa
 document.getElementById('app').innerHTML = `
 <style>
     body { margin: 0; background: #1a1a2e; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; user-select: none; overscroll-behavior: none; touch-action: none; }
-    #menu { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 20px; box-sizing: border-box; }
-    h1 { font-size: 32px; margin-bottom: 10px; color: #4ecca3; text-align: center; }
-    p { color: #aaa; margin-bottom: 30px; }
-    .menu-btn { background: rgba(255,255,255,0.1); color: white; border: 2px solid rgba(255,255,255,0.2); padding: 15px 30px; margin: 10px; border-radius: 15px; font-size: 18px; font-weight: bold; width: 80%; max-width: 300px; cursor: pointer; display: flex; justify-content: space-between; }
+    
+    /* ===== ГЛАВНОЕ МЕНЮ (КОМПАКТНОЕ) ===== */
+    #menu { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 10px; box-sizing: border-box; }
+    h1 { font-size: 26px; margin: 0 0 5px 0; color: #4ecca3; text-align: center; }
+    p { color: #aaa; margin: 0 0 15px 0; font-size: 14px; }
+    .menu-btn { 
+        background: rgba(255,255,255,0.1); 
+        color: white; 
+        border: 2px solid rgba(255,255,255,0.2); 
+        padding: 10px 20px; 
+        margin: 5px; 
+        border-radius: 12px; 
+        font-size: 15px; 
+        font-weight: bold; 
+        width: 85%; 
+        max-width: 280px; 
+        cursor: pointer; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+    }
+    #wallet { font-size: 13px; color: #f1c40f; margin-bottom: 10px; text-align: center; }
+    
+    /* ===== ИГРОВОЙ ЭКРАН ===== */
     #game-screen { display: none; flex-direction: column; align-items: center; width: 100%; height: 100%; }
     #level-goal { margin-top: 10px; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; text-align: center; width: 90%; max-width: 400px; box-sizing: border-box; }
     .header { display: flex; justify-content: space-between; width: 90%; max-width: 400px; margin-top: 10px; font-size: 18px; font-weight: bold; background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 12px; box-sizing: border-box; }
@@ -37,7 +57,6 @@ document.getElementById('app').innerHTML = `
     .btn-shuffle { flex: 1; background: #3498db; border: none; }
     .btn-menu { width: 90%; max-width: 400px; margin-top: 10px; background: #e94560; border: none; padding: 12px; font-weight: bold; }
     .btn-shop { width: 90%; max-width: 400px; margin-top: 10px; background: #f39c12; border: none; color: #1a1a2e; padding: 12px; font-weight: bold; }
-    #wallet { font-size: 14px; color: #f1c40f; margin-bottom: 5px; }
 
     #game-over { display: none; flex-direction: column; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10; }
     #combo-text { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); font-size: 30px; font-weight: bold; color: #ffcc00; text-shadow: 0 0 10px #ff0000; opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 100; text-align: center; width: 80%; }
@@ -122,26 +141,26 @@ function decodeUserDataFromURL() {
 
 function loadPlayerData() {
     const data = decodeUserDataFromURL();
-    if (data) {
+    const cachedStr = localStorage.getItem('m3_cache');
+    let cached = null;
+    try { cached = JSON.parse(cachedStr); } catch(e) {}
+    
+    // Если в кэше есть данные и они новее (по времени), берем их
+    if (cached && cached.ts && (!data || data.ts < cached.ts)) {
+        playerCoins    = cached.c;
+        playerHammers  = cached.h;
+        playerShuffles = cached.s;
+        currentLevel   = cached.l;
+        maxScore       = cached.m || 0;
+    } else if (data) {
         playerCoins    = data.c ?? 0;
         playerHammers  = data.h ?? 0;
         playerShuffles = data.s ?? 0;
         currentLevel   = data.l ?? 1;
         maxScore       = data.m ?? 0;
         localStorage.setItem('m3_cache', JSON.stringify({
-            c: playerCoins, h: playerHammers, s: playerShuffles, l: currentLevel, m: maxScore
+            c: playerCoins, h: playerHammers, s: playerShuffles, l: currentLevel, m: maxScore, ts: Date.now()
         }));
-    } else {
-        try {
-            const cached = JSON.parse(localStorage.getItem('m3_cache') || 'null');
-            if (cached) {
-                playerCoins    = cached.c ?? 0;
-                playerHammers  = cached.h ?? 0;
-                playerShuffles = cached.s ?? 0;
-                currentLevel   = cached.l ?? 1;
-                maxScore       = cached.m ?? 0;
-            }
-        } catch (e) {}
     }
     refreshUI();
 }
@@ -176,6 +195,10 @@ function queueSync(action) {
         }
         refreshUI();
     }
+    
+    localStorage.setItem('m3_cache', JSON.stringify({
+        c: playerCoins, h: playerHammers, s: playerShuffles, l: currentLevel, m: maxScore, ts: Date.now()
+    }));
 }
 
 function flushSync() {
@@ -185,6 +208,7 @@ function flushSync() {
         pendingSync.earnedCoins > 0 ||
         pendingSync.newLevel;
     if (!has) return;
+    
     const payload = {
         sync: {
             sh: pendingSync.spentHammers,
@@ -193,11 +217,13 @@ function flushSync() {
             nl: pendingSync.newLevel
         }
     };
+    
     try {
         tg.sendData(JSON.stringify(payload));
     } catch (e) {
         console.warn("sendData failed:", e);
     }
+    
     pendingSync = { spentHammers: 0, spentShuffles: 0, earnedCoins: 0, newLevel: null };
 }
 
@@ -269,7 +295,6 @@ function checkGoalComplete() {
     } else if (currentMode === 'endless' && goalType === 'fruit' && goalProgress >= goalTarget) {
         currentLevel++;
         score += 500;
-        queueSync({ action: "endless_goal" });
         queueSync({ action: "add_coins", amount: 1 });
 
         const comboEl = document.getElementById('combo-text');
@@ -313,12 +338,14 @@ function startTimer() {
 
 function exitToMenu() {
     if (gameInterval) clearInterval(gameInterval);
-    flushSync();
+    
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('game-over').style.display = 'none';
+    
     setTimeout(() => {
-        document.getElementById('game-screen').style.display = 'none';
-        document.getElementById('game-over').style.display = 'none';
+        flushSync();
         document.getElementById('menu').style.display = 'flex';
-    }, 100);
+    }, 50);
 }
 
 function endGame(reason) {
