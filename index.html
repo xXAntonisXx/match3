@@ -20,12 +20,14 @@ document.getElementById('app').innerHTML = `
 <style>
     body { margin: 0; background: #1a1a2e; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; user-select: none; overscroll-behavior: none; touch-action: none; }
     
+    /* ===== ГЛАВНОЕ МЕНЮ ===== */
     #menu { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 10px; box-sizing: border-box; }
     h1 { font-size: 26px; margin: 0 0 5px 0; color: #4ecca3; text-align: center; }
     p { color: #aaa; margin: 0 0 15px 0; font-size: 14px; }
     .menu-btn { background: rgba(255,255,255,0.1); color: white; border: 2px solid rgba(255,255,255,0.2); padding: 10px 20px; margin: 5px; border-radius: 12px; font-size: 15px; font-weight: bold; width: 85%; max-width: 280px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
     #wallet { font-size: 13px; color: #f1c40f; margin-bottom: 10px; text-align: center; }
     
+    /* ===== ИГРОВОЙ ЭКРАН ===== */
     #game-screen { display: none; flex-direction: column; align-items: center; width: 100%; height: 100%; }
     #level-goal { margin-top: 10px; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; text-align: center; width: 90%; max-width: 400px; box-sizing: border-box; }
     .header { display: flex; justify-content: space-between; width: 90%; max-width: 400px; margin-top: 10px; font-size: 18px; font-weight: bold; background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 12px; box-sizing: border-box; }
@@ -183,17 +185,25 @@ function queueSync(action) {
     saveCache();
 }
 
-// Принудительная отправка в бота через открытие диплинка (Telegram закроет WebApp)
 function flushSync() {
     const has = pendingSync.spentHammers > 0 || pendingSync.spentShuffles > 0 || pendingSync.earnedCoins > 0 || pendingSync.newLevel;
     if (!has) return;
     
-    // Формируем JSON с текущими данными
-    const syncData = { c: playerCoins, h: playerHammers, s: playerShuffles, l: currentLevel, m: maxScore };
-    const b64 = btoa(JSON.stringify(syncData)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const payload = {
+        sync: {
+            sh: pendingSync.spentHammers,
+            ss: pendingSync.spentShuffles,
+            ec: pendingSync.earnedCoins,
+            nl: pendingSync.newLevel
+        }
+    };
     
-    // Открываем бота с командой sync_<base64>
-    tg.openTelegramLink(`https://t.me/${BOT_USERNAME}?start=sync_${b64}`);
+    // Мягкая отправка (не закрывает WebApp)
+    try {
+        tg.sendData(JSON.stringify(payload));
+    } catch (e) {
+        console.warn("sendData failed:", e);
+    }
     
     pendingSync = { spentHammers: 0, spentShuffles: 0, earnedCoins: 0, newLevel: null };
 }
@@ -278,8 +288,10 @@ function startTimer() {
 
 function exitToMenu() {
     if (gameInterval) clearInterval(gameInterval);
-    // Отправляем данные и переходим в бота (это закроет WebApp)
-    flushSync(); 
+    flushSync(); // Отправляем данные в бота (фоном)
+    document.getElementById('game-screen').style.display = 'none';
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('menu').style.display = 'flex';
 }
 
 function endGame(reason) {
@@ -300,7 +312,8 @@ function endGame(reason) {
     if (currentMode === 'vs') {
         if (score > maxScore) maxScore = score;
         saveCache();
-        setTimeout(() => { tg.openTelegramLink(`https://t.me/${BOT_USERNAME}?start=record_${score}`); }, 300);
+        // Отправляем рекорд без закрытия WebApp
+        try { tg.sendData(JSON.stringify({ record: score })); } catch (e) {}
     }
 }
 
