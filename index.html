@@ -20,14 +20,12 @@ document.getElementById('app').innerHTML = `
 <style>
     body { margin: 0; background: #1a1a2e; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; user-select: none; overscroll-behavior: none; touch-action: none; }
     
-    /* ===== ГЛАВНОЕ МЕНЮ ===== */
     #menu { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 10px; box-sizing: border-box; }
     h1 { font-size: 26px; margin: 0 0 5px 0; color: #4ecca3; text-align: center; }
     p { color: #aaa; margin: 0 0 15px 0; font-size: 14px; }
     .menu-btn { background: rgba(255,255,255,0.1); color: white; border: 2px solid rgba(255,255,255,0.2); padding: 10px 20px; margin: 5px; border-radius: 12px; font-size: 15px; font-weight: bold; width: 85%; max-width: 280px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
     #wallet { font-size: 13px; color: #f1c40f; margin-bottom: 10px; text-align: center; }
     
-    /* ===== ИГРОВОЙ ЭКРАН ===== */
     #game-screen { display: none; flex-direction: column; align-items: center; width: 100%; height: 100%; }
     #level-goal { margin-top: 10px; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; text-align: center; width: 90%; max-width: 400px; box-sizing: border-box; }
     .header { display: flex; justify-content: space-between; width: 90%; max-width: 400px; margin-top: 10px; font-size: 18px; font-weight: bold; background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 12px; box-sizing: border-box; }
@@ -113,8 +111,6 @@ let maxScore = 0;
 let goalType = null, goalTarget = 0, goalProgress = 0, goalFruitIndex = 0, isHammerMode = false;
 let touchStartX = 0, touchStartY = 0, touchStartRow = null, touchStartCol = null;
 
-let pendingSync = { spentHammers: 0, spentShuffles: 0, earnedCoins: 0, newLevel: null };
-
 // ================= СИНХРОНИЗАЦИЯ =================
 function decodeUserDataFromURL() {
     const params = new URLSearchParams(window.location.search);
@@ -170,55 +166,43 @@ function refreshUI() {
 
 function queueSync(action) {
     if (action.action === "spend_booster") {
-        if (action.booster === "hammer" && playerHammers > 0) {
-            playerHammers--;
-            pendingSync.spentHammers++;
-        } else if (action.booster === "shuffle" && playerShuffles > 0) {
-            playerShuffles--;
-            pendingSync.spentShuffles++;
-        }
+        if (action.booster === "hammer" && playerHammers > 0) playerHammers--;
+        else if (action.booster === "shuffle" && playerShuffles > 0) playerShuffles--;
         refreshUI();
     } else if (action.action === "add_coins") {
         playerCoins += action.amount;
-        pendingSync.earnedCoins += action.amount;
         refreshUI();
     } else if (action.action === "level_complete") {
-        if (action.level > currentLevel) {
-            currentLevel = action.level;
-            pendingSync.newLevel = action.level;
-        }
+        if (action.level > currentLevel) currentLevel = action.level;
         refreshUI();
     }
     saveCache();
 }
 
-// Отправка данных в бота БЕЗ закрытия WebApp
+// ЖЕСТКАЯ СИНХРОНИЗАЦИЯ: сохраняем в кэш и перезагружаем страницу с новыми данными
 function flushSync() {
-    const has = pendingSync.spentHammers > 0 || pendingSync.spentShuffles > 0 || pendingSync.earnedCoins > 0 || pendingSync.newLevel;
-    if (!has) return;
+    saveCache();
     
-    const payload = {
-        sync: {
-            sh: pendingSync.spentHammers,
-            ss: pendingSync.spentShuffles,
-            ec: pendingSync.earnedCoins,
-            nl: pendingSync.newLevel
-        }
-    };
+    // Формируем base64 из актуальных данных
+    const syncData = { c: playerCoins, h: playerHammers, s: playerShuffles, l: currentLevel, m: maxScore };
+    const b64 = btoa(JSON.stringify(syncData)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     
-    try {
-        tg.sendData(JSON.stringify(payload));
-    } catch (e) {
-        console.warn("sendData failed:", e);
-    }
+    // Перезагружаем страницу с новыми данными (это заставит бота обновить БД через initData, если настроено, или хотя бы сохранит в кэш)
+    const newUrl = `${window.location.pathname}?d=${b64}&t=${Date.now()}`;
     
-    pendingSync = { spentHammers: 0, spentShuffles: 0, earnedCoins: 0, newLevel: null };
+    // Пытаемся отправить через tg.sendData (сработает, если WebApp закрывается)
+    try { tg.sendData(JSON.stringify({ sync: syncData })); } catch(e) {}
+    
+    // Перезагружаем WebApp (игра моргнет и загрузит актуальные данные)
+    setTimeout(() => {
+        window.location.href = newUrl;
+    }, 100);
 }
 
 // ================= МЕНЮ =================
 function showTop() { tg.openTelegramLink(`https://t.me/${BOT_USERNAME}?start=top`); }
 function getDailyBonus() { tg.openTelegramLink(`https://t.me/${BOT_USERNAME}?start=daily`); }
-function openShopInBot() { flushSync(); tg.openTelegramLink(`https://t.me/${BOT_USERNAME}?start=shop`); }
+function openShopInBot() { saveCache(); tg.openTelegramLink(`https://t.me/${BOT_USERNAME}?start=shop`); }
 
 // ================= ИГРА =================
 function startGame(mode) {
@@ -293,17 +277,9 @@ function startTimer() {
     }, 1000);
 }
 
-// ТА САМАЯ ФУНКЦИЯ ВЫХОДА
 function exitToMenu() {
     if (gameInterval) clearInterval(gameInterval);
-    
-    // 1. Отправляем данные в бота
-    flushSync(); 
-    
-    // 2. Переключаем экран (если WebApp не закроется от sendData)
-    document.getElementById('game-screen').style.display = 'none';
-    document.getElementById('game-over').style.display = 'none';
-    document.getElementById('menu').style.display = 'flex';
+    flushSync(); // Сохраняем, отправляем, перезагружаем
 }
 
 function endGame(reason) {
@@ -313,7 +289,7 @@ function endGame(reason) {
         queueSync({ action: "level_complete", level: currentLevel });
         queueSync({ action: "add_coins", amount: 5 });
         document.getElementById('go-title').innerText = reason;
-        document.getElementById('go-score').innerText = `Очки: ${score}\n💰 +5 монет (сохранится при выходе)`;
+        document.getElementById('go-score').innerText = `Очки: ${score}\n💰 +5 монет (нажми "В меню")`;
     } else {
         document.getElementById('go-title').innerText = reason;
         document.getElementById('go-score').innerText = `Очки: ${score}`;
@@ -324,7 +300,6 @@ function endGame(reason) {
     if (currentMode === 'vs') {
         if (score > maxScore) maxScore = score;
         saveCache();
-        try { tg.sendData(JSON.stringify({ record: score })); } catch (e) {}
     }
 }
 
